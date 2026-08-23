@@ -1,74 +1,82 @@
-// src/utils/audioManager.ts
 import { CONFIG } from '@/config';
 
 class AudioManager {
-  private sounds: Map<string, HTMLAudioElement> = new Map();
-  private muted: boolean = false;
+  private audio: HTMLAudioElement | null = null;
+  private context: AudioContext | null = null;
+  private destination: MediaStreamAudioDestinationNode | null = null;
+  private source: MediaElementAudioSourceNode | null = null;
+  private muted = false;
 
   async preload(muted: boolean): Promise<void> {
     this.muted = muted;
-    if (muted) return;
 
-    const entries: [string, string][] = [
-      ['intro',       CONFIG.audio.intro],
-      ['tick',        CONFIG.audio.tick],
-      ['reveal',      CONFIG.audio.reveal],
-      ['celebration', CONFIG.audio.celebration],
-    ];
+    if (!this.audio) {
+      this.audio = new Audio(CONFIG.audio.intro);
+      this.audio.preload = 'auto';
 
-    const promises = entries.map(([key, src]) => {
-      return new Promise<void>((resolve) => {
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.volume = 0.7;
-        audio.oncanplaythrough = () => {
-          this.sounds.set(key, audio);
-          resolve();
-        };
-        audio.onerror = () => resolve();
-        setTimeout(() => resolve(), 2000);
-        audio.src = src;
-        audio.load();
+      await new Promise<void>((resolve) => {
+        if (this.audio!.readyState >= 3) return resolve();
+
+        this.audio!.oncanplaythrough = () => resolve();
+        this.audio!.onerror = () => resolve();
+        setTimeout(resolve, 2000);
+
+        this.audio!.load();
       });
-    });
+    }
 
-    await Promise.all(promises);
+    if (!this.context) {
+      this.context = new AudioContext();
+      this.destination = this.context.createMediaStreamDestination();
+      this.source = this.context.createMediaElementSource(this.audio);
+
+      this.source.connect(this.destination);
+      this.source.connect(this.context.destination);
+    }
+
+    if (this.context.state === 'suspended') {
+      try {
+        await this.context.resume();
+      } catch {}
+    }
   }
 
-  play(key: string, volume: number = 0.7, loop: boolean = false): void {
-    if (this.muted) return;
-    const audio = this.sounds.get(key);
-    if (!audio) return;
+  getStream(): MediaStream | null {
+    return this.destination?.stream ?? null;
+  }
+
+  play(key: string, volume = 0.7, loop = false): void {
+    if (this.muted || key !== 'intro' || !this.audio) return;
+
     try {
-      audio.currentTime = 0;
-      audio.volume = volume;
-      audio.loop = loop;
-      audio.play().catch(() => {});
-    } catch {
-      // ignore
-    }
+      this.audio.currentTime = 0;
+      this.audio.volume = volume;
+      this.audio.loop = loop;
+
+      if (this.context?.state === 'suspended') {
+        this.context.resume().catch(() => {});
+      }
+
+      this.audio.play().catch(() => {});
+    } catch {}
   }
 
   stop(key: string): void {
-    const audio = this.sounds.get(key);
-    if (!audio) return;
+    if (key !== 'intro' || !this.audio) return;
+
     try {
-      audio.pause();
-      audio.currentTime = 0;
-    } catch {
-      // ignore
-    }
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    } catch {}
   }
 
   stopAll(): void {
-    this.sounds.forEach((audio) => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-    });
+    if (!this.audio) return;
+
+    try {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    } catch {}
   }
 
   setMuted(muted: boolean): void {
