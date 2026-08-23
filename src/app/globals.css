@@ -424,3 +424,43 @@ canvas {
   cursor: pointer;
   font-family: 'Montserrat', sans-serif;
 }
+
+
+/* Add to globals.css */
+
+/* ── Custom Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 100, 255, 0.35);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 100, 255, 0.6);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 100, 255, 0.35) rgba(255, 255, 255, 0.03);
+}
+
+/* Panel specific scrollbar */
+.cp-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 100, 255, 0.3) transparent;
+}
