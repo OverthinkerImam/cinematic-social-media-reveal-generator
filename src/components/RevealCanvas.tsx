@@ -28,6 +28,15 @@ declare global {
   }
 }
 
+/** Formats the current date/time as YYYY-MM-DD_HH-MM-SS for use in filenames (no milliseconds). */
+function formatFileTimestamp(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const time = `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+  return `${date}_${time}`;
+}
+
 interface RevealCanvasProps {
   aspectRatio: AspectRatio;
   muted: boolean;
@@ -55,6 +64,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
   const isRecordingRef      = useRef(false);
   const thumbnailRecordingRef = useRef(false);
   const userConfigRef       = useRef(userConfig);
+  const stopFinalizeRef     = useRef<(() => void) | null>(null);
 
   const [showReplay, setShowReplay]     = useState(false);
   const [isRecording, setIsRecording]   = useState(false);
@@ -110,6 +120,8 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     if (mediaRecorderRef.current?.state !== 'inactive') {
       try { mediaRecorderRef.current?.stop(); } catch { /* ignore */ }
     }
+    // Clear out any pending finalize handler from a previous recording
+    stopFinalizeRef.current = null;
 
     recordedChunksRef.current = [];
     setRecordingDone(false);
@@ -171,12 +183,20 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
 
     mr.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) recordedChunksRef.current.push(event.data);
+      // If a flush was requested via stopRecording(), this is our signal
+      // that the encoder has handed over its buffered frames.
+      if (stopFinalizeRef.current) {
+        const finalize = stopFinalizeRef.current;
+        stopFinalizeRef.current = null;
+        finalize();
+      }
     };
 
     mr.onstop = async () => {
       isRecordingRef.current = false;
       setIsRecording(false);
       thumbnailRecordingRef.current = false;
+      stopFinalizeRef.current = null;
 
       const chunks = recordedChunksRef.current;
       if (!chunks.length) { console.warn('No recorded data'); return; }
@@ -187,7 +207,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
       const url = URL.createObjectURL(seekable);
       const a   = document.createElement('a');
       a.href     = url;
-      a.download = `reveal-${aspectRatio.replace(':', 'x')}-${Date.now()}.webm`;
+      a.download = `reveal-${aspectRatio.replace(':', 'x')}-${formatFileTimestamp()}.webm`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -201,6 +221,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
       isRecordingRef.current = false;
       setIsRecording(false);
       thumbnailRecordingRef.current = false;
+      stopFinalizeRef.current = null;
     };
 
     mr.start(100);
@@ -212,13 +233,45 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
   }, [aspectRatio]);
 
   /* ── Stop recording ───────────────────────────────────────── */
+  // Stopping on a fixed timer can cut the VP9 encoder off mid-cluster if
+  // it's still catching up on buffered frames, which corrupts the final
+  // GOP (shows up as decode corruption in the last ~1-2s of playback).
+  // Instead, we wait for the encoder to confirm (via 'dataavailable')
+  // that it actually flushed the buffered frames, then give it a short
+  // grace period before calling stop(). A safety-net timeout guards
+  // against 'dataavailable' never firing.
   const stopRecording = useCallback(() => {
     const mr = mediaRecorderRef.current;
     if (!mr || mr.state === 'inactive') return;
-    try { mr.requestData(); } catch { /* ignore */ }
-    setTimeout(() => {
+
+    let finished = false;
+    const finalize = () => {
+      if (finished) return;
+      finished = true;
+      stopFinalizeRef.current = null;
       try { if (mr.state !== 'inactive') mr.stop(); } catch { /* ignore */ }
-    }, 350);
+    };
+
+    // Grace period after the flush lands, to let the encoder pipeline
+    // fully settle before we terminate it.
+    const onFlushConfirmed = () => setTimeout(finalize, 500);
+    stopFinalizeRef.current = onFlushConfirmed;
+
+    try {
+      mr.requestData();
+    } catch {
+      stopFinalizeRef.current = null;
+      finalize();
+      return;
+    }
+
+    // Safety net in case 'dataavailable' never fires for some reason
+    setTimeout(() => {
+      if (stopFinalizeRef.current === onFlushConfirmed) {
+        stopFinalizeRef.current = null;
+      }
+      finalize();
+    }, 2000);
   }, []);
 
   /* ── Thumbnail + recording start ──────────────────────────── */
@@ -416,6 +469,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
       isRunningRef.current = false;
       cancelAnimationFrame(animFrameRef.current);
       audioManager.stopAll();
+      stopFinalizeRef.current = null;
       const mr = mediaRecorderRef.current;
       if (mr && mr.state !== 'inactive') { 
         try { mr.stop(); } catch { /* ignore */ } 

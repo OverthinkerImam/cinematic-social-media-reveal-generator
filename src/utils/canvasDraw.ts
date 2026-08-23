@@ -381,8 +381,11 @@ export function resetGroupY(key: string) {
 
 /* ── Reveal layout (1:1 image) ──────────────────────────────── */
 export function getRevealLayout(W: number, H: number, is169: boolean, lineCount: number) {
-  // Square image: use same size in both dimensions
-  const iSize = is169 ? Math.min(W * 0.30, H * 0.46) : Math.min(W * 0.62, H * 0.30);
+  // Square image: use same size in both dimensions (1:1 ratio preserved).
+  // In 9:16 (portrait) the image occupies 90% of the total width.
+  // In 16:9 (landscape) the size stays constrained so the stacked text
+  // below it still fits on screen.
+  const iSize = is169 ? Math.min(W * 0.30, H * 0.46) : W * 0.90;
   const iW = iSize;
   const iH = iSize;
 
@@ -812,7 +815,7 @@ export function drawCountdown(
   ctx.restore();
 
   const ata = nr < IN ? nr / IN : nr > 1 - OUT ? al : 1;
-  const atx: Record<number, string> = { 3: '🤫  ALMOST TIME...', 2: '😮  GET READY...', 1: '🔥  HERE IT COMES!' };
+  const atx: Record<number, string> = { 3: '🤫  ALMOST THERE...', 2: '😮  GET READY...', 1: '🔥  HERE IT COMES!' };
   fadeIn(ctx, al * ata, () => {
     drawCenteredText(ctx, atx[num], cx, cy - (is169 ? H * 0.22 : H * 0.16), {
       font: `700 ${is169 ? W * 0.022 : W * 0.042}px Montserrat`,
