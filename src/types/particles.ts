@@ -1,3 +1,4 @@
+// src/types/particles.ts
 import { Particle } from '@/types';
 
 let particleId = 0;
@@ -136,10 +137,8 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle): void {
 
 function drawStar(
   ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  innerR: number,
-  outerR: number,
+  cx: number, cy: number,
+  innerR: number, outerR: number,
   points: number
 ) {
   ctx.beginPath();

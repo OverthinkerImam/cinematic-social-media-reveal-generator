@@ -1,3 +1,4 @@
+// src/utils/audioManager.ts
 import { CONFIG } from '@/config';
 
 class AudioManager {

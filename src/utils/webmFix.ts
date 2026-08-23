@@ -1,28 +1,23 @@
+// src/utils/webmFix.ts
 function readVint(
   data: Uint8Array,
   offset: number
 ): { value: number; length: number; unknown: boolean } {
   if (offset >= data.length) return { value: 0, length: 1, unknown: false };
-
   const first = data[offset];
   if (first === 0) return { value: 0, length: 1, unknown: false };
-
   let length = 1;
   for (let mask = 0x80; mask > 0; mask >>= 1) {
     if (first & mask) break;
     length++;
   }
-
   if (length > 8 || offset + length > data.length) return { value: 0, length: 1, unknown: false };
-
   let value = first & (0xff >> length);
   for (let i = 1; i < length; i++) {
     value = value * 256 + data[offset + i];
   }
-
   const maxValue = Math.pow(2, 7 * length) - 1;
   const unknown = value === maxValue;
-
   return { value, length, unknown };
 }
 
@@ -30,9 +25,7 @@ function encodeVint(value: number, preferredLength?: number): Uint8Array {
   let length = preferredLength ?? Math.ceil(Math.log2(value + 1) / 7);
   if (length < 1) length = 1;
   if (length > 8) length = 8;
-
   while (length < 8 && value >= Math.pow(2, 7 * length) - 1) length++;
-
   const result = new Uint8Array(length);
   let temp = value;
   for (let i = length - 1; i >= 0; i--) {
@@ -104,8 +97,8 @@ function fixWebMDuration(data: Uint8Array, durationMs: number): Uint8Array {
     }
 
     const durationTicks = (durationMs * 1_000_000) / timecodeScale;
-
     const durationIndex = findElement(data, durationId, infoBodyStart, infoBodyEnd);
+
     if (durationIndex !== -1) {
       const durationSizeInfo = readVint(data, durationIndex + 2);
       if (durationSizeInfo.value === 8) {
@@ -113,7 +106,6 @@ function fixWebMDuration(data: Uint8Array, durationMs: number): Uint8Array {
         output.set(float64BE(durationTicks), durationIndex + 2 + durationSizeInfo.length);
         return output;
       }
-      console.warn('WebM: Existing Duration has unexpected size');
       return data;
     }
 
@@ -149,12 +141,9 @@ function fixWebMDuration(data: Uint8Array, durationMs: number): Uint8Array {
 
 export async function makeSeekableWebM(blob: Blob, durationMs: number): Promise<Blob> {
   try {
-    const buffer  = await blob.arrayBuffer();
-    const fixed   = fixWebMDuration(new Uint8Array(buffer), durationMs);
-
-    // ✅ Copy into a brand-new ArrayBuffer — guaranteed to be plain ArrayBuffer
+    const buffer = await blob.arrayBuffer();
+    const fixed = fixWebMDuration(new Uint8Array(buffer), durationMs);
     const cleanBuffer = fixed.buffer.slice(0) as ArrayBuffer;
-
     return new Blob([cleanBuffer], { type: blob.type || 'video/webm' });
   } catch (error) {
     console.warn('Could not make WebM seekable:', error);

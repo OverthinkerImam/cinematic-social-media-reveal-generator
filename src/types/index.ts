@@ -1,3 +1,4 @@
+// src/types/index.ts
 export type AspectRatio = '16:9' | '9:16';
 
 export interface AppState {
@@ -21,4 +22,21 @@ export interface Particle {
   rotation?: number;
   rotationSpeed?: number;
   shape?: 'circle' | 'square' | 'star';
+}
+
+export interface PlatformConfig {
+  id: string;
+  name: 'instagram' | 'youtube' | 'facebook';
+  handle: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface UserConfig {
+  profileImageDataUrl: string | null;
+  cropX: number;
+  cropY: number;
+  cropSize: number;
+  username: string;
+  platforms: PlatformConfig[];
 }
