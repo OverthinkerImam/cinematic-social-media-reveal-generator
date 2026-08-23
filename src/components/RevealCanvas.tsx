@@ -114,7 +114,15 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     recordedChunksRef.current = [];
     setRecordingDone(false);
 
-    const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const candidates = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4;codecs=avc1',
+      'video/mp4'
+    ];
     const mime = candidates.find(m => {
       try { return MediaRecorder.isTypeSupported(m); } catch { return false; }
     }) ?? 'video/webm';
@@ -122,18 +130,43 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
 
     let stream: MediaStream;
     try {
-      stream = canvas.captureStream(60);
+      // Try high-performance capture (60fps)
+      stream = canvas.captureStream ? canvas.captureStream(60) : (canvas as any).mozCaptureStream(60);
     } catch (e) {
-      console.error('captureStream failed:', e);
-      return false;
+      try {
+        // Fallback to standard 30fps
+        stream = canvas.captureStream ? canvas.captureStream(30) : (canvas as any).mozCaptureStream(30);
+      } catch (e2) {
+        try {
+          // System default capture rate fallback
+          stream = canvas.captureStream ? canvas.captureStream() : (canvas as any).mozCaptureStream();
+        } catch (e3) {
+          console.error('Canvas captureStream initialization failed:', e3);
+          return false;
+        }
+      }
     }
 
     let mr: MediaRecorder;
     try {
+      // Try recording at 12 Mbps for maximum visual quality
       mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
     } catch (e) {
-      console.error('MediaRecorder init failed:', e);
-      return false;
+      try {
+        // Fallback to 8 Mbps for broader system compatibility (e.g. older processors/mobile browser constraints)
+        mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+      } catch (e2) {
+        try {
+          mr = new MediaRecorder(stream, { mimeType: mime });
+        } catch (e3) {
+          try {
+            mr = new MediaRecorder(stream);
+          } catch (e4) {
+            console.error('MediaRecorder instantiation failed:', e4);
+            return false;
+          }
+        }
+      }
     }
 
     mr.ondataavailable = (event) => {
@@ -164,7 +197,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     };
 
     mr.onerror = (event) => {
-      console.error('MediaRecorder error:', event);
+      console.error('MediaRecorder runtime error:', event);
       isRecordingRef.current = false;
       setIsRecording(false);
       thumbnailRecordingRef.current = false;
@@ -193,10 +226,10 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) { afterStart(); return; }
 
-    // Draw first frame
+    // Draw first frame immediately to avoid capturing empty/black frames
     drawFirstFrame(canvas, COMP_W, COMP_H, is169);
 
-    // Wait for two animation frames to ensure frame is captured, then start recording
+    // Wait for frames to queue to verify output and begin recording cleanly
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -204,7 +237,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
           if (!started) { afterStart(); return; }
           thumbnailRecordingRef.current = true;
 
-          // Hold thumbnail for 600ms so recorder captures it
+          // Hold thumbnail for 600ms to allow recorder initialization
           setTimeout(() => {
             thumbnailRecordingRef.current = false;
             afterStart();
@@ -353,32 +386,42 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     });
   }, [resetState, startWithThumbnail]);
 
-  /* ── Mount ────────────────────────────────────────────────── */
+  /* ── Mount & Aspect Ratio Switch Initialization ────────────── */
   useEffect(() => {
+    let active = true;
+
     const init = async () => {
       await audioManager.preload(muted);
+      if (!active) return;
 
+      // Handle both "START REVEAL" and aspect-ratio changes dynamically
       if (autoDownloadRef.current) {
         resetState();
         startWithThumbnail(() => {
+          if (!active) return;
           startTimeRef.current = performance.now();
           animFrameRef.current = requestAnimationFrame(() => loopRef.current?.());
         });
       } else {
         resetState();
+        startTimeRef.current = performance.now();
         animFrameRef.current = requestAnimationFrame(() => loopRef.current?.());
       }
     };
+
     init();
+
     return () => {
+      active = false;
       isRunningRef.current = false;
       cancelAnimationFrame(animFrameRef.current);
       audioManager.stopAll();
       const mr = mediaRecorderRef.current;
-      if (mr && mr.state !== 'inactive') { try { mr.stop(); } catch { /* ignore */ } }
+      if (mr && mr.state !== 'inactive') { 
+        try { mr.stop(); } catch { /* ignore */ } 
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [aspectRatio, muted, startWithThumbnail, resetState, autoDownload]);
 
   /* ── Canvas scaling ───────────────────────────────────────── */
   const vpW   = typeof window !== 'undefined' ? window.innerWidth  : COMP_W;
