@@ -213,23 +213,20 @@ export function drawGitHubIcon(ctx: CanvasRenderingContext2D, cx: number, cy: nu
 
   const s = size / 2;
 
-  // 1. Draw rounded background box
   ctx.fillStyle = '#24292e';
   ctx.beginPath();
   ctx.roundRect(cx - s, cy - s, size, size, size * 0.22);
   ctx.fill();
 
-  // 2. Draw official GitHub Mark vector path inside
-  const iconSize = size * 0.62; // scale logo to occupy ~62% of background box
-  const scale = iconSize / 16;  // official SVG viewport is 16x16
+  const iconSize = size * 0.62;
+  const scale = iconSize / 16; 
 
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
-  ctx.translate(-8, -8); // Offset half of the 16x16 viewport size to center it
+  ctx.translate(-8, -8); 
 
   ctx.fillStyle = '#ffffff';
 
-  // Official GitHub logo SVG path
   const gitHubPath = new Path2D(
     'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 ' +
     '0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-' +
@@ -283,31 +280,6 @@ export function drawProfileImage(
 
   if (blur > 0) ctx.filter = 'none';
   ctx.restore();
-}
-
-/* ── Image utilities (legacy wrappers) ──────────────────────── */
-export function drawBlurredImage(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number, y: number, w: number, h: number,
-  blur: number
-) {
-  const previous = ctx.filter;
-  ctx.filter = `blur(${blur}px) brightness(0.7)`;
-  ctx.drawImage(img, x, y, w, h);
-  ctx.filter = previous || 'none';
-}
-
-export function drawSharpImage(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number, y: number, w: number, h: number,
-  blur: number
-) {
-  const previous = ctx.filter;
-  ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
-  ctx.drawImage(img, x, y, w, h);
-  ctx.filter = previous || 'none';
 }
 
 /* ── Light rays ─────────────────────────────────────────────── */
@@ -422,10 +394,6 @@ export function resetGroupY(key: string) {
 
 /* ── Reveal layout (1:1 image) ──────────────────────────────── */
 export function getRevealLayout(W: number, H: number, is169: boolean, lineCount: number) {
-  // Square image: use same size in both dimensions (1:1 ratio preserved).
-  // In 9:16 (portrait) the image occupies 90% of the total width.
-  // In 16:9 (landscape) the size stays constrained so the stacked text
-  // below it still fits on screen.
   const iSize = is169 ? Math.min(W * 0.30, H * 0.46) : W * 0.90;
   const iW = iSize;
   const iH = iSize;
@@ -524,7 +492,6 @@ export function drawFirstFrame(
 
   const ir = window.__croppedProfileImg_ref__ || window.__profileImg_ref__;
 
-  // Square image dimensions for thumbnail
   const imgSize = is169 ? Math.min(W * 0.30, H * 0.46) : Math.min(W * 0.62, H * 0.30);
   const imgX = W / 2 - imgSize / 2;
   const imgY = H / 2 - imgSize / 2 - (is169 ? H * 0.08 : H * 0.06);
@@ -535,7 +502,6 @@ export function drawFirstFrame(
     ctx.roundRect(imgX, imgY, imgSize, imgSize, 16);
     ctx.clip();
     ctx.filter = 'blur(14px) brightness(0.65)';
-    // Draw as 1:1
     const srcSize = Math.min(ir.naturalWidth, ir.naturalHeight);
     const srcX = (ir.naturalWidth - srcSize) / 2;
     const srcY = (ir.naturalHeight - srcSize) / 2;
@@ -572,7 +538,7 @@ export function drawFirstFrame(
     const stream = canvas.captureStream();
     const track = stream.getVideoTracks()[0] as MediaStreamTrack & { requestFrame?: () => void };
     if (track && typeof track.requestFrame === 'function') track.requestFrame();
-  } catch { /* optional */ }
+  } catch { }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -658,7 +624,6 @@ export function drawSuspense(
   const cy = H / 2;
   const baseSize = is169 ? W * 0.028 : W * 0.044;
 
-  // Square card
   const cardSize = is169 ? Math.min(W * 0.30, H * 0.50) : Math.min(W * 0.72, H * 0.44);
   const cardW = cardSize;
   const cardH = cardSize;
@@ -696,7 +661,6 @@ export function drawSuspense(
   ctx.clip();
   const imgEl = window.__croppedProfileImg_ref__ || window.__profileImg_ref__;
   if (imgEl) {
-    // Draw as 1:1 square crop
     ctx.filter = 'blur(18px) brightness(0.7)';
     const srcSize = Math.min(imgEl.naturalWidth, imgEl.naturalHeight);
     const srcX = (imgEl.naturalWidth - srcSize) / 2;
@@ -903,7 +867,6 @@ export function drawReveal(
   const layout = getRevealLayout(W, H, is169, lineCount);
   const cx = W / 2;
 
-  // Square image positioning
   const iX = cx - layout.iW / 2;
   const iY = layout.positions[0] - layout.iH / 2;
 
@@ -999,19 +962,19 @@ export function drawSocialCards(
 
   const activePlatforms = platforms && platforms.length > 0
     ? platforms
-        .filter(p => p.enabled)
-        .sort((a, b) => a.order - b.order)
-        .map((p, i) => ({
-          name: p.name,
-          handle: p.handle,
-          iconFn: getIconFn(p.name),
-          delay: i * 0.5,
-        }))
+      .filter(p => p.enabled)
+      .sort((a, b) => a.order - b.order)
+      .map((p, i) => ({
+        name: p.name,
+        handle: p.handle,
+        iconFn: getIconFn(p.name),
+        delay: i * 0.5,
+      }))
     : [
-        { name: 'instagram', handle: CONFIG.instagramHandle, iconFn: drawInstagramIcon, delay: 0 },
-        { name: 'youtube',   handle: CONFIG.youtubeHandle,   iconFn: drawYouTubeIcon,   delay: 0.5 },
-        { name: 'facebook',  handle: CONFIG.facebookHandle,  iconFn: drawFacebookIcon,  delay: 1.0 },
-      ];
+      { name: 'instagram', handle: CONFIG.instagramHandle, iconFn: drawInstagramIcon, delay: 0 },
+      { name: 'youtube', handle: CONFIG.youtubeHandle, iconFn: drawYouTubeIcon, delay: 0.5 },
+      { name: 'facebook', handle: CONFIG.facebookHandle, iconFn: drawFacebookIcon, delay: 1.0 },
+    ];
 
   const platformCount = activePlatforms.length;
   const useGrid = is169 && platformCount > 3;
@@ -1020,9 +983,9 @@ export function drawSocialCards(
   const cH = is169 ? (useGrid ? H * 0.14 : H * 0.15) : H * 0.10;
   const iS = is169 ? cH * 0.55 : cH * 0.58;
   const gap = is169 ? W * 0.025 : H * 0.022;
-  const titleH    = is169 ? H * 0.055 : H * 0.050;
+  const titleH = is169 ? H * 0.055 : H * 0.050;
   const titleSize = is169 ? W * 0.018 : W * 0.030;
-  const titleGap  = is169 ? H * 0.035 : H * 0.030;
+  const titleGap = is169 ? H * 0.035 : H * 0.030;
 
   const visibleCount = Math.max(
     1,
@@ -1032,7 +995,7 @@ export function drawSocialCards(
   const { animTopY } = getSocialLayout(
     W, H, is169, visibleCount, cW, cH, gap, titleH, titleGap,
   );
-  const titleY      = animTopY + titleH / 2;
+  const titleY = animTopY + titleH / 2;
   const contentTopY = animTopY + titleH + titleGap;
 
   fadeIn(ctx, titleP, () => {
@@ -1088,7 +1051,6 @@ export function drawSocialCards(
   }
 }
 
-/* ── FINAL CTA ───────────────────────────────────────────────── */
 /* ── FINAL CTA ───────────────────────────────────────────────── */
 export function drawFinalCTA(
   ctx: CanvasRenderingContext2D, W: number, H: number, t: number, is169: boolean,
@@ -1149,41 +1111,30 @@ export function drawFinalCTA(
 
   const count = Math.max(1, activePlatforms.length);
 
-  /* ── Row layout logic ───────────────────────────────────── */
-  // 1 → [1]
-  // 2 → [2]
-  // 3 → [1, 2]
-  // 4 → [2, 2]
   let rowCounts: number[];
   if (count === 1) rowCounts = [1];
   else if (count === 2) rowCounts = [2];
   else if (count === 3) rowCounts = [1, 2];
-  else rowCounts = [2, 2]; // 4+
+  else rowCounts = [2, 2];
 
   const rows = rowCounts.length;
 
-  /* ── Icon size scales with "biggest slot" ───────────────── */
-  // Bigger when fewer icons per row.
-  // Single (per row) → biggest. Two per row → medium.
   const maxPerRow = Math.max(...rowCounts);
-  const iSizeSingle = is169 ? H * 0.12 : W * 0.18;   // when alone in a row
-  const iSizeDouble = is169 ? H * 0.09 : W * 0.135;  // when 2 in a row
+  const iSizeSingle = is169 ? H * 0.12 : W * 0.18;
+  const iSizeDouble = is169 ? H * 0.09 : W * 0.135;
 
-  // Vertical spacing
   const rowGapY = is169 ? H * 0.03 : H * 0.025;
   const handleTextSize = is169
     ? (maxPerRow === 1 ? W * 0.014 : W * 0.011)
     : (maxPerRow === 1 ? W * 0.030 : W * 0.024);
   const iconToHandleGap = is169 ? H * 0.012 : H * 0.010;
 
-  // Compute row heights
   const rowHeights = rowCounts.map(rc => {
     const iSz = rc === 1 ? iSizeSingle : iSizeDouble;
     return iSz + iconToHandleGap + handleTextSize * 1.2;
   });
   const iconsBlockH = rowHeights.reduce((s, v) => s + v, 0) + rowGapY * (rows - 1);
 
-  /* ── Text block layout ──────────────────────────────────── */
   const lg = is169 ? H * 0.1 : H * 0.08;
   const blockTextH = lg * 2;
   const iconGapTop = is169 ? H * 0.05 : H * 0.04;
@@ -1216,12 +1167,8 @@ export function drawFinalCTA(
     ctx.restore();
   });
 
-  /* ── Draw icons row-by-row ──────────────────────────────── */
   const ip = easeOutExpo(clamp01(progress(t, 17.1, 17.6)));
   const ipH = ip * 0.85;
-
-  // Available width per row (leave margins)
-  const maxRowW = is169 ? W * 0.62 : W * 0.92;
 
   let cursorY = iconsTop;
   let platformIdx = 0;
@@ -1230,10 +1177,8 @@ export function drawFinalCTA(
     const rc = rowCounts[r];
     const iSz = rc === 1 ? iSizeSingle : iSizeDouble;
 
-    // Compute horizontal gap. Ensure no overlap: at least iSz * 1.4 between centers.
-    const minCenterGap = iSz * 1.55;
-    let centerGap = rc > 1 ? Math.min(maxRowW / rc, minCenterGap * 1.3) : 0;
-    if (rc > 1 && centerGap < minCenterGap) centerGap = minCenterGap;
+    // Use a percentage of screen width to prevent long handle overlaps
+    const centerGap = rc > 1 ? (is169 ? W * 0.30 : W * 0.45) : 0;
 
     const rowW = rc > 1 ? centerGap * (rc - 1) : 0;
     const rowX0 = cx - rowW / 2;
