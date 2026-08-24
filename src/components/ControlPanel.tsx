@@ -15,27 +15,27 @@ interface ControlPanelProps {
 }
 
 const DEFAULT_PLATFORMS: PlatformConfig[] = [
-  { id: 'instagram', name: 'instagram', handle: CONFIG.instagramHandle, enabled: true,  order: 0 },
-  { id: 'youtube',   name: 'youtube',   handle: CONFIG.youtubeHandle,   enabled: true,  order: 1 },
-  { id: 'facebook',  name: 'facebook',  handle: CONFIG.facebookHandle,  enabled: true,  order: 2 },
-  { id: 'github',    name: 'github',    handle: CONFIG.githubHandle,    enabled: true,  order: 3 },
+  { id: 'instagram', name: 'instagram', handle: CONFIG.instagramHandle, enabled: true, order: 0 },
+  { id: 'youtube', name: 'youtube', handle: CONFIG.youtubeHandle, enabled: true, order: 1 },
+  { id: 'facebook', name: 'facebook', handle: CONFIG.facebookHandle, enabled: true, order: 2 },
+  { id: 'github', name: 'github', handle: CONFIG.githubHandle, enabled: true, order: 3 },
 ];
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
   defaultRatio, defaultMuted, defaultUserConfig, onStart,
 }) => {
   const [selected, setSelected] = useState<AspectRatio>(defaultRatio);
-  const [muted, setMuted]       = useState(defaultMuted);
+  const [muted, setMuted] = useState(defaultMuted);
   const [platforms, setPlatforms] = useState<PlatformConfig[]>(
     defaultUserConfig?.platforms ?? DEFAULT_PLATFORMS
   );
   const [username, setUsername] = useState(defaultUserConfig?.username ?? CONFIG.username);
 
-  const [rawImageSrc, setRawImageSrc]     = useState<string | null>(null);
-  const [croppedImage, setCroppedImage]   = useState<string | null>(
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(
     defaultUserConfig?.profileImageDataUrl ?? null
   );
-  const [showCropper, setShowCropper]     = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +89,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         <div className="cp-grain" />
 
         <div className="cp-panel">
-          
+
           {/* Header */}
           <div className="cp-header">
             <div className="cp-badge">
@@ -101,10 +101,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
           {/* Grid Container */}
           <div className="cp-grid">
-            
+
             {/* Left Column: Identity & Format */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', minWidth: 0 }}>
+
               {/* Profile Card */}
               <div className="cp-card">
                 <span className="cp-label">PROFILE IMAGE</span>
@@ -180,8 +180,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             </div>
 
             {/* Right Column: Socials & Actions */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', height: '100%' }}>
-              
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', minWidth: 0 }}>
+
               {/* Social Platforms Card */}
               <div className="cp-card" style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
