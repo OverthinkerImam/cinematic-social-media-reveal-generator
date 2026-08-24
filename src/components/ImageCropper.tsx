@@ -9,32 +9,119 @@ interface ImageCropperProps {
   onCancel: () => void;
 }
 
-const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, onCancel }) => {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
-  const previewRef = useRef<HTMLCanvasElement>(null);
-  const imgRef     = useRef<HTMLImageElement | null>(null);
+type DragAction = 'none' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br';
 
-  const isDragging = useRef(false);
+const LABEL_STYLE: React.CSSProperties = {
+  color: 'rgba(255,255,255,0.4)',
+  fontSize: 'clamp(10px, 1.7vw, 11px)',
+  letterSpacing: '2.5px',
+  textTransform: 'uppercase',
+  margin: 0,
+  fontWeight: 600,
+};
+
+/* Preview component declared outside parent component */
+const PreviewShell: React.FC<{ canvasRefProp: React.RefObject<HTMLCanvasElement | null> }> = ({ canvasRefProp }) => (
+  <div style={{
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: '8px', width: '100%', padding: '14px',
+    background: 'rgba(255,255,255,0.02)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '12px',
+  }}>
+    <p style={{ ...LABEL_STYLE, textAlign: 'center' }}>LIVE PREVIEW</p>
+    <canvas ref={canvasRefProp} className="ic-preview-canvas" />
+  </div>
+);
+
+/* Self-contained Hold Button component declared outside parent component */
+interface HoldButtonProps {
+  style: React.CSSProperties;
+  title: string;
+  onAction: () => void;
+  children: React.ReactNode;
+}
+
+const HoldButton: React.FC<HoldButtonProps> = ({ style, title, onAction, children }) => {
+  const timeoutRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
+
+  const stopHold = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const startHold = useCallback(() => {
+    onAction();
+    timeoutRef.current = window.setTimeout(() => {
+      intervalRef.current = window.setInterval(onAction, 40);
+    }, 300);
+  }, [onAction]);
+
+  useEffect(() => {
+    return () => stopHold();
+  }, [stopHold]);
+
+  return (
+    <button
+      style={style}
+      title={title}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        startHold();
+      }}
+      onMouseUp={stopHold}
+      onMouseLeave={stopHold}
+      onTouchStart={(e) => {
+        e.preventDefault();
+        startHold();
+      }}
+      onTouchEnd={stopHold}
+      onTouchCancel={stopHold}
+    >
+      {children}
+    </button>
+  );
+};
+
+const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, onCancel }) => {
+  const canvasRef     = useRef<HTMLCanvasElement>(null);
+  const previewRefSm  = useRef<HTMLCanvasElement>(null); // mobile preview
+  const previewRefLg  = useRef<HTMLCanvasElement>(null); // desktop preview
+  const imgRef        = useRef<HTMLImageElement | null>(null);
+
+  const dragAction = useRef<DragAction>('none');
   const dragStart  = useRef({ x: 0, y: 0 });
   const lastCrop   = useRef({ x: 0, y: 0 });
+  const lastSize   = useRef(200);
 
   const [cropPos,   setCropPos]   = useState({ x: 0, y: 0 });
   const [cropSize,  setCropSize]  = useState(200);
   const [scale,     setScale]     = useState(1);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [moveStep,  setMoveStep]  = useState(4);
-  // Store dimensions in state so render never needs imgRef
+  const [sizeStep,  setSizeStep]  = useState(6);
   const [imgDims,   setImgDims]   = useState({ w: 0, h: 0 });
 
   const cropPosRef  = useRef({ x: 0, y: 0 });
   const cropSizeRef = useRef(200);
   const scaleRef    = useRef(1);
+  const moveStepRef = useRef(4);
+  const sizeStepRef = useRef(6);
 
-  const DISPLAY_SIZE = 400;
+  const DISPLAY_SIZE = 560;
 
   useEffect(() => { cropPosRef.current  = cropPos;  }, [cropPos]);
   useEffect(() => { cropSizeRef.current = cropSize; }, [cropSize]);
   useEffect(() => { scaleRef.current    = scale;    }, [scale]);
+  useEffect(() => { moveStepRef.current = moveStep; }, [moveStep]);
+  useEffect(() => { sizeStepRef.current = sizeStep; }, [sizeStep]);
 
   const clampCrop = useCallback((
     x: number, y: number, size: number, imgW: number, imgH: number
@@ -64,7 +151,6 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
     img.src = imageSrc;
   }, [imageSrc]);
 
-  /* ── Slider value derived purely from state (no refs) ───── */
   const sizeSliderValue = useMemo(() => {
     if (!imgDims.w || !imgDims.h) return 100;
     const dW   = imgDims.w * scale;
@@ -74,6 +160,27 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
     if (maxS <= minS) return 100;
     return ((cropSize - minS) / (maxS - minS)) * 100;
   }, [imgDims, scale, cropSize]);
+
+  /* Draw the cropped region into a preview canvas */
+  const drawPreview = useCallback((
+    preview: HTMLCanvasElement | null,
+    img: HTMLImageElement,
+    srcX: number, srcY: number, srcS: number,
+  ) => {
+    if (!preview) return;
+    const pc = preview.getContext('2d');
+    if (!pc) return;
+    const P = 320;
+    preview.width  = P;
+    preview.height = P;
+    pc.clearRect(0, 0, P, P);
+    pc.save();
+    pc.beginPath();
+    pc.roundRect(0, 0, P, P, 12);
+    pc.clip();
+    pc.drawImage(img, srcX, srcY, srcS, srcS, 0, 0, P, P);
+    pc.restore();
+  }, []);
 
   const redraw = useCallback(() => {
     if (!imgLoaded || !imgRef.current) return;
@@ -132,26 +239,13 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
       ctx.beginPath(); ctx.moveTo(cropPos.x, gy); ctx.lineTo(cropPos.x + cropSize, gy); ctx.stroke();
     }
 
-    const preview = previewRef.current;
-    if (preview) {
-      const pc = preview.getContext('2d');
-      if (pc) {
-        const P = 320;
-        preview.width  = P;
-        preview.height = P;
-        const srcX = cropPos.x / scale;
-        const srcY = cropPos.y / scale;
-        const srcS = cropSize / scale;
-        pc.clearRect(0, 0, P, P);
-        pc.save();
-        pc.beginPath();
-        pc.roundRect(0, 0, P, P, 12);
-        pc.clip();
-        pc.drawImage(img, srcX, srcY, srcS, srcS, 0, 0, P, P);
-        pc.restore();
-      }
-    }
-  }, [imgLoaded, cropPos, cropSize, scale]);
+    // Draw into BOTH preview canvases
+    const srcX = cropPos.x / scale;
+    const srcY = cropPos.y / scale;
+    const srcS = cropSize / scale;
+    drawPreview(previewRefSm.current, img, srcX, srcY, srcS);
+    drawPreview(previewRefLg.current, img, srcX, srcY, srcS);
+  }, [imgLoaded, cropPos, cropSize, scale, drawPreview]);
 
   useEffect(() => { redraw(); }, [redraw]);
 
@@ -163,20 +257,49 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
     const cur = cropPosRef.current;
     const sz  = cropSizeRef.current;
     const clamped = clampCrop(cur.x + dx, cur.y + dy, sz, dW, dH);
+    cropPosRef.current = clamped;
     setCropPos(clamped);
   }, [clampCrop]);
 
+  const resizeCrop = useCallback((delta: number) => {
+    const img = imgRef.current;
+    if (!img) return;
+    const dW   = img.naturalWidth  * scaleRef.current;
+    const dH   = img.naturalHeight * scaleRef.current;
+    const minS = Math.min(dW, dH) * 0.15;
+    const maxS = Math.min(dW, dH);
+    const cur  = cropSizeRef.current;
+    const cp   = cropPosRef.current;
+
+    const maxAllowed = Math.min(maxS, dW - cp.x, dH - cp.y);
+    const newS = Math.max(minS, Math.min(maxAllowed, cur + delta));
+
+    cropSizeRef.current = newS;
+    setCropSize(newS);
+  }, []);
+
+  /* Direction callbacks for HoldButtons */
+  const moveUp    = useCallback(() => move(0, -moveStepRef.current), [move]);
+  const moveDown  = useCallback(() => move(0, moveStepRef.current), [move]);
+  const moveLeft  = useCallback(() => move(-moveStepRef.current, 0), [move]);
+  const moveRight = useCallback(() => move(moveStepRef.current, 0), [move]);
+
+  const shrinkCrop = useCallback(() => resizeCrop(-sizeStepRef.current), [resizeCrop]);
+  const growCrop   = useCallback(() => resizeCrop(sizeStepRef.current), [resizeCrop]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const step = moveStep;
+      const step = moveStepRef.current;
       if (e.key === 'ArrowLeft')  { e.preventDefault(); move(-step, 0); }
       if (e.key === 'ArrowRight') { e.preventDefault(); move(step,  0); }
       if (e.key === 'ArrowUp')    { e.preventDefault(); move(0, -step); }
       if (e.key === 'ArrowDown')  { e.preventDefault(); move(0,  step); }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); resizeCrop(sizeStepRef.current); }
+      if (e.key === '-' || e.key === '_') { e.preventDefault(); resizeCrop(-sizeStepRef.current); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [move, moveStep]);
+  }, [move, resizeCrop]);
 
   const getCanvasPos = (
     e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement
@@ -196,91 +319,143 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
     };
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const pos = getCanvasPos(e, canvas);
     const cp  = cropPosRef.current;
     const cs  = cropSizeRef.current;
-    if (pos.x >= cp.x && pos.x <= cp.x + cs && pos.y >= cp.y && pos.y <= cp.y + cs) {
-      isDragging.current = true;
-      dragStart.current  = pos;
-      lastCrop.current   = { ...cp };
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const threshold = 24 * scaleX;
+
+    const dTL = Math.hypot(pos.x - cp.x, pos.y - cp.y);
+    const dTR = Math.hypot(pos.x - (cp.x + cs), pos.y - cp.y);
+    const dBL = Math.hypot(pos.x - cp.x, pos.y - (cp.y + cs));
+    const dBR = Math.hypot(pos.x - (cp.x + cs), pos.y - (cp.y + cs));
+
+    if (dTL < threshold) { dragAction.current = 'resize-tl'; }
+    else if (dTR < threshold) { dragAction.current = 'resize-tr'; }
+    else if (dBL < threshold) { dragAction.current = 'resize-bl'; }
+    else if (dBR < threshold) { dragAction.current = 'resize-br'; }
+    else if (pos.x >= cp.x && pos.x <= cp.x + cs && pos.y >= cp.y && pos.y <= cp.y + cs) {
+      dragAction.current = 'move';
+    } else {
+      dragAction.current = 'none';
+      return;
     }
+
+    dragStart.current = pos;
+    lastCrop.current  = { ...cp };
+    lastSize.current  = cs;
   };
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging.current) return;
+  const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     const img    = imgRef.current;
     if (!canvas || !img) return;
     const pos = getCanvasPos(e, canvas);
-    const dx  = pos.x - dragStart.current.x;
-    const dy  = pos.y - dragStart.current.y;
-    const dW  = img.naturalWidth  * scaleRef.current;
-    const dH  = img.naturalHeight * scaleRef.current;
-    const clamped = clampCrop(
-      lastCrop.current.x + dx,
-      lastCrop.current.y + dy,
-      cropSizeRef.current, dW, dH
-    );
-    setCropPos(clamped);
-  }, [clampCrop]);
 
-  const handleMouseUp = () => { isDragging.current = false; };
+    if (dragAction.current === 'none') {
+      if (!('touches' in e)) {
+        const cp = cropPosRef.current;
+        const cs = cropSizeRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const threshold = 24 * scaleX;
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const pos = getCanvasPos(e, canvas);
-    const cp  = cropPosRef.current;
-    const cs  = cropSizeRef.current;
-    if (pos.x >= cp.x && pos.x <= cp.x + cs && pos.y >= cp.y && pos.y <= cp.y + cs) {
-      isDragging.current = true;
-      dragStart.current  = pos;
-      lastCrop.current   = { ...cp };
+        const dTL = Math.hypot(pos.x - cp.x, pos.y - cp.y);
+        const dTR = Math.hypot(pos.x - (cp.x + cs), pos.y - cp.y);
+        const dBL = Math.hypot(pos.x - cp.x, pos.y - (cp.y + cs));
+        const dBR = Math.hypot(pos.x - (cp.x + cs), pos.y - (cp.y + cs));
+
+        if (dTL < threshold || dBR < threshold) canvas.style.cursor = 'nwse-resize';
+        else if (dTR < threshold || dBL < threshold) canvas.style.cursor = 'nesw-resize';
+        else if (pos.x >= cp.x && pos.x <= cp.x + cs && pos.y >= cp.y && pos.y <= cp.y + cs) canvas.style.cursor = 'move';
+        else canvas.style.cursor = 'default';
+      }
+      return;
     }
-  };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging.current) return;
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    const img    = imgRef.current;
-    if (!canvas || !img) return;
-    const pos = getCanvasPos(e, canvas);
-    const dx  = pos.x - dragStart.current.x;
-    const dy  = pos.y - dragStart.current.y;
-    const dW  = img.naturalWidth  * scaleRef.current;
-    const dH  = img.naturalHeight * scaleRef.current;
-    const clamped = clampCrop(
-      lastCrop.current.x + dx,
-      lastCrop.current.y + dy,
-      cropSizeRef.current, dW, dH
-    );
-    setCropPos(clamped);
-  };
+    if ('touches' in e) e.preventDefault();
 
-  const resizeCrop = useCallback((delta: number) => {
-    const img = imgRef.current;
-    if (!img) return;
-    const dW   = img.naturalWidth  * scaleRef.current;
-    const dH   = img.naturalHeight * scaleRef.current;
-    const minS = Math.min(dW, dH) * 0.15;
-    const maxS = Math.min(dW, dH);
-    const cur  = cropSizeRef.current;
-    const cp   = cropPosRef.current;
-    const newS = Math.max(minS, Math.min(maxS, cur + delta));
-    const cx   = cp.x + cur / 2;
-    const cy   = cp.y + cur / 2;
-    const clamped = clampCrop(cx - newS / 2, cy - newS / 2, newS, dW, dH);
-    setCropSize(newS);
-    setCropPos(clamped);
+    const dW = img.naturalWidth  * scaleRef.current;
+    const dH = img.naturalHeight * scaleRef.current;
+
+    if (dragAction.current === 'move') {
+      const dx  = pos.x - dragStart.current.x;
+      const dy  = pos.y - dragStart.current.y;
+      const clamped = clampCrop(
+        lastCrop.current.x + dx,
+        lastCrop.current.y + dy,
+        cropSizeRef.current, dW, dH
+      );
+      cropPosRef.current = clamped;
+      setCropPos(clamped);
+    } else {
+      const minS = Math.min(dW, dH) * 0.15;
+      const ox = lastCrop.current.x;
+      const oy = lastCrop.current.y;
+      const os = lastSize.current;
+
+      let newS = os;
+      let nx = ox;
+      let ny = oy;
+
+      if (dragAction.current === 'resize-br') {
+        const w = pos.x - ox;
+        const h = pos.y - oy;
+        newS = Math.max(w, h);
+        newS = Math.max(minS, Math.min(newS, dW - ox, dH - oy));
+      } else if (dragAction.current === 'resize-tl') {
+        const oppositeX = ox + os;
+        const oppositeY = oy + os;
+        const w = oppositeX - pos.x;
+        const h = oppositeY - pos.y;
+        newS = Math.max(w, h);
+        newS = Math.max(minS, Math.min(newS, oppositeX, oppositeY));
+        nx = oppositeX - newS;
+        ny = oppositeY - newS;
+      } else if (dragAction.current === 'resize-tr') {
+        const oppositeX = ox;
+        const oppositeY = oy + os;
+        const w = pos.x - oppositeX;
+        const h = oppositeY - pos.y;
+        newS = Math.max(w, h);
+        newS = Math.max(minS, Math.min(newS, dW - oppositeX, oppositeY));
+        nx = oppositeX;
+        ny = oppositeY - newS;
+      } else if (dragAction.current === 'resize-bl') {
+        const oppositeX = ox + os;
+        const oppositeY = oy;
+        const w = oppositeX - pos.x;
+        const h = pos.y - oppositeY;
+        newS = Math.max(w, h);
+        newS = Math.max(minS, Math.min(newS, oppositeX, dH - oppositeY));
+        nx = oppositeX - newS;
+        ny = oppositeY;
+      }
+
+      cropSizeRef.current = newS;
+      cropPosRef.current  = { x: nx, y: ny };
+      setCropSize(newS);
+      setCropPos({ x: nx, y: ny });
+    }
   }, [clampCrop]);
+
+  const handlePointerUp = () => {
+    dragAction.current = 'none';
+  };
+
+  const handleMouseLeave = () => {
+    dragAction.current = 'none';
+    if (canvasRef.current) canvasRef.current.style.cursor = 'default';
+  };
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    resizeCrop(e.deltaY > 0 ? -12 : 12);
+    resizeCrop(e.deltaY > 0 ? -sizeStepRef.current : sizeStepRef.current);
   };
 
   const handleConfirm = useCallback(() => {
@@ -300,196 +475,195 @@ const ImageCropper: React.FC<ImageCropperProps> = ({ imageSrc, onCropComplete, o
     onCropComplete(out.toDataURL('image/jpeg', 0.93));
   }, [onCropComplete]);
 
-  /* Event handler — refs are fine here */
   const handleSizeSlider = (val: number) => {
     if (!imgDims.w || !imgDims.h) return;
     const dW   = imgDims.w * scale;
     const dH   = imgDims.h * scale;
     const minS = Math.min(dW, dH) * 0.15;
     const maxS = Math.min(dW, dH);
-    const newS = minS + (val / 100) * (maxS - minS);
-    const cx   = cropPos.x + cropSize / 2;
-    const cy   = cropPos.y + cropSize / 2;
-    const clamped = clampCrop(cx - newS / 2, cy - newS / 2, newS, dW, dH);
+    const cp   = cropPosRef.current;
+    const maxAllowed = Math.min(maxS, dW - cp.x, dH - cp.y);
+    const newS = Math.max(minS, Math.min(maxAllowed, minS + (val / 100) * (maxS - minS)));
+    cropSizeRef.current = newS;
     setCropSize(newS);
-    setCropPos(clamped);
   };
 
-  const arrowBtnStyle = (disabled = false): React.CSSProperties => ({
-    width: 'clamp(34px, 8vw, 38px)',
-    height: 'clamp(34px, 8vw, 38px)',
-    background: disabled ? 'rgba(255,255,255,0.03)' : 'rgba(120,40,255,0.15)',
-    border: `1px solid ${disabled ? 'rgba(255,255,255,0.06)' : 'rgba(180,100,255,0.35)'}`,
-    borderRadius: '8px',
-    color: disabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.85)',
-    fontSize: '15px', fontWeight: 700,
-    cursor: disabled ? 'default' : 'pointer',
+  const arrowBtnStyle: React.CSSProperties = {
+    width: 'clamp(40px, 9vw, 48px)',
+    height: 'clamp(40px, 9vw, 48px)',
+    background: 'rgba(120,40,255,0.15)',
+    border: '1px solid rgba(180,100,255,0.35)',
+    borderRadius: '10px',
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: '17px', fontWeight: 700,
+    cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontFamily: 'Montserrat, sans-serif',
     transition: 'all 0.15s',
-    flexShrink: 0,
-    userSelect: 'none',
-    touchAction: 'manipulation',
-  });
+    flexShrink: 0, userSelect: 'none', touchAction: 'manipulation',
+  };
 
-  const labelStyle: React.CSSProperties = {
-    color: 'rgba(255,255,255,0.35)',
-    fontSize: 'clamp(9px, 1.6vw, 10px)',
-    letterSpacing: '2.5px',
-    textTransform: 'uppercase',
-    margin: 0,
+  const sizeBtnStyle: React.CSSProperties = {
+    width: 'clamp(40px, 9vw, 48px)',
+    height: 'clamp(40px, 9vw, 48px)',
+    background: 'rgba(255,215,0,0.10)',
+    border: '1px solid rgba(255,215,0,0.35)',
+    borderRadius: '10px',
+    color: '#ffd700',
+    fontSize: '20px', fontWeight: 800,
+    cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'Montserrat, sans-serif',
+    flexShrink: 0, userSelect: 'none', touchAction: 'manipulation',
   };
 
   return (
     <div className="ic-overlay">
-      <div className="ic-panel">
-        {/* Header */}
+      <div className="ic-panel ic-panel-wide">
         <div style={{ textAlign: 'center' }}>
-          <p style={labelStyle}>CROP PROFILE IMAGE</p>
+          <p style={LABEL_STYLE}>CROP PROFILE IMAGE</p>
           <h3 style={{
-            color: '#fff', fontSize: 'clamp(15px, 3vw, 17px)',
+            color: '#fff', fontSize: 'clamp(17px, 3vw, 20px)',
             fontWeight: 800, margin: '5px 0 0', letterSpacing: '1px',
           }}>
             Select 1:1 Area
           </h3>
           <p style={{
-            color: 'rgba(255,255,255,0.35)',
-            fontSize: 'clamp(10px, 1.8vw, 11px)', margin: '3px 0 0',
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 'clamp(11px, 1.9vw, 12px)', margin: '4px 0 0',
           }}>
-            Drag to move · Scroll or slider to resize · Arrow keys supported
+            Drag corners to resize (fixes opposite corner) · Drag box to move
           </p>
         </div>
 
-        {/* Canvas */}
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-          <canvas
-            ref={canvasRef}
-            style={{
-              width: '100%', maxWidth: `${DISPLAY_SIZE}px`,
-              cursor: 'move', borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.1)',
-              display: 'block', touchAction: 'none',
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleMouseUp}
-          />
-        </div>
-
-        {/* Arrow controls + step slider */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: '10px',
-          padding: '12px 14px',
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: '12px',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px', flexWrap: 'wrap',
-          }}>
-            <p style={labelStyle}>MOVE CROP</p>
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              gap: '8px', flex: '1 1 140px', justifyContent: 'flex-end',
-              minWidth: '140px',
-            }}>
-              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', whiteSpace: 'nowrap' }}>
-                step: <span style={{ color: '#ffd700', fontWeight: 700 }}>{moveStep}px</span>
-              </span>
-              <input
-                type="range" min={0} max={30} step={1} value={moveStep}
-                onChange={e => setMoveStep(Number(e.target.value))}
-                style={{ width: '80px', accentColor: '#ffd700', cursor: 'pointer' }}
+        <div className="ic-grid">
+          {/* LEFT: Canvas + desktop preview */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minWidth: 0 }}>
+              <canvas
+                ref={canvasRef}
+                style={{
+                  width: '100%', maxWidth: `${DISPLAY_SIZE}px`,
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  display: 'block', touchAction: 'none',
+                }}
+                onMouseDown={handlePointerDown}
+                onMouseMove={handlePointerMove}
+                onMouseUp={handlePointerUp}
+                onMouseLeave={handleMouseLeave}
+                onTouchStart={handlePointerDown}
+                onTouchMove={handlePointerMove}
+                onTouchEnd={handlePointerUp}
+                onTouchCancel={handlePointerUp}
+                onWheel={handleWheel}
               />
             </div>
-          </div>
 
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', gap: '4px',
-          }}>
-            <button style={arrowBtnStyle()} onClick={() => move(0, -moveStep)} title="Move Up">▲</button>
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <button style={arrowBtnStyle()} onClick={() => move(-moveStep, 0)} title="Move Left">◀</button>
-              <div style={{
-                width: 'clamp(34px, 8vw, 38px)',
-                height: 'clamp(34px, 8vw, 38px)',
-                borderRadius: '50%',
-                background: 'rgba(255,215,0,0.08)',
-                border: '1px solid rgba(255,215,0,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '14px',
-              }}>✛</div>
-              <button style={arrowBtnStyle()} onClick={() => move(moveStep, 0)}  title="Move Right">▶</button>
-            </div>
-            <button style={arrowBtnStyle()} onClick={() => move(0, moveStep)}  title="Move Down">▼</button>
-          </div>
-        </div>
-
-        {/* Preview + size slider */}
-        <div className="ic-preview-row">
-          <div className="ic-preview-col">
-            <p style={{ ...labelStyle, textAlign: 'center' }}>PREVIEW</p>
-            <canvas ref={previewRef} className="ic-preview-canvas" />
-          </div>
-
-          <div className="ic-size-col">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={labelStyle}>CROP SIZE</p>
-              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>scroll or drag</span>
-            </div>
-            <input
-              type="range" min={0} max={100} step={0.5}
-              value={sizeSliderValue}
-              onChange={e => handleSizeSlider(Number(e.target.value))}
-              style={{ width: '100%', accentColor: '#9933ff', cursor: 'pointer' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>min</span>
-              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>1024×1024</span>
-              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>max</span>
+            <div className="ic-preview-lg">
+              <PreviewShell canvasRefProp={previewRefLg} />
             </div>
           </div>
-        </div>
 
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: '1 1 100px', padding: '12px',
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
-              color: 'rgba(255,255,255,0.6)',
-              fontSize: 'clamp(11px, 2vw, 12px)', fontWeight: 600,
-              letterSpacing: '2px', cursor: 'pointer',
-              fontFamily: 'Montserrat, sans-serif',
-            }}
-          >
-            CANCEL
-          </button>
-          <button
-            onClick={handleConfirm}
-            style={{
-              flex: '2 1 180px', padding: '12px',
-              background: 'linear-gradient(135deg, #9933ff 0%, #6600cc 100%)',
-              border: '1px solid rgba(180,100,255,0.45)', borderRadius: '10px',
-              color: '#fff',
-              fontSize: 'clamp(11px, 2vw, 12px)', fontWeight: 800,
-              letterSpacing: '3px', cursor: 'pointer',
-              fontFamily: 'Montserrat, sans-serif',
-              boxShadow: '0 0 28px rgba(120,40,255,0.38)',
-            }}
-          >
-            ✓ USE THIS CROP
-          </button>
+          {/* RIGHT: mobile preview + controls */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', minWidth: 0 }}>
+
+            <div className="ic-preview-sm">
+              <PreviewShell canvasRefProp={previewRefSm} />
+            </div>
+
+            {/* Move Controls */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '12px',
+              padding: '14px', background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '12px', width: '100%', minWidth: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <p style={LABEL_STYLE}>MOVE CROP</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 140px', justifyContent: 'flex-end', minWidth: '140px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                    step: <span style={{ color: '#ffd700', fontWeight: 700 }}>{moveStep}px</span>
+                  </span>
+                  <input type="range" min={1} max={30} step={1} value={moveStep}
+                    onChange={e => setMoveStep(Number(e.target.value))}
+                    style={{ width: '90px', accentColor: '#ffd700', cursor: 'pointer' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                <HoldButton style={arrowBtnStyle} title="Move Up" onAction={moveUp}>▲</HoldButton>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <HoldButton style={arrowBtnStyle} title="Move Left" onAction={moveLeft}>◀</HoldButton>
+                  <div style={{
+                    width: 'clamp(40px, 9vw, 48px)', height: 'clamp(40px, 9vw, 48px)',
+                    borderRadius: '50%', background: 'rgba(255,215,0,0.08)',
+                    border: '1px solid rgba(255,215,0,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px',
+                  }}>✛</div>
+                  <HoldButton style={arrowBtnStyle} title="Move Right" onAction={moveRight}>▶</HoldButton>
+                </div>
+                <HoldButton style={arrowBtnStyle} title="Move Down" onAction={moveDown}>▼</HoldButton>
+              </div>
+            </div>
+
+            {/* Size Controls */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '12px',
+              padding: '14px', background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '12px', width: '100%', minWidth: 0,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <p style={LABEL_STYLE}>CROP SIZE</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 140px', justifyContent: 'flex-end', minWidth: '140px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                    step: <span style={{ color: '#ffd700', fontWeight: 700 }}>{sizeStep}px</span>
+                  </span>
+                  <input type="range" min={1} max={40} step={1} value={sizeStep}
+                    onChange={e => setSizeStep(Number(e.target.value))}
+                    style={{ width: '90px', accentColor: '#ffd700', cursor: 'pointer' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <HoldButton style={sizeBtnStyle} title="Shrink" onAction={shrinkCrop}>−</HoldButton>
+                <input type="range" min={0} max={100} step={0.5} value={sizeSliderValue}
+                  onChange={e => handleSizeSlider(Number(e.target.value))}
+                  style={{ flex: 1, accentColor: '#9933ff', cursor: 'pointer', minWidth: 0 }} />
+                <HoldButton style={sizeBtnStyle} title="Grow" onAction={growCrop}>+</HoldButton>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>min</span>
+                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>drag corners · opposite fixed</span>
+                <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px' }}>max</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', width: '100%' }}>
+              <button onClick={onCancel} style={{
+                flex: '1 1 100px', padding: '14px', background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
+                color: 'rgba(255,255,255,0.6)', fontSize: 'clamp(12px, 2vw, 13px)',
+                fontWeight: 600, letterSpacing: '2px', cursor: 'pointer',
+                fontFamily: 'Montserrat, sans-serif',
+              }}>
+                CANCEL
+              </button>
+              <button onClick={handleConfirm} style={{
+                flex: '2 1 180px', padding: '14px',
+                background: 'linear-gradient(135deg, #9933ff 0%, #6600cc 100%)',
+                border: '1px solid rgba(180,100,255,0.45)', borderRadius: '10px',
+                color: '#fff', fontSize: 'clamp(12px, 2vw, 13px)', fontWeight: 800,
+                letterSpacing: '3px', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif',
+                boxShadow: '0 0 28px rgba(120,40,255,0.38)',
+              }}>
+                ✓ USE THIS CROP
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
