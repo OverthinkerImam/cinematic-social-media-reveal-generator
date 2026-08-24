@@ -135,9 +135,9 @@ export function drawProgressBar(
 /* ── Platform info ──────────────────────────────────────────── */
 export const PLATFORM_INFO: Record<string, { label: string; color: string; gradient: [string, string] }> = {
   instagram: { label: 'Instagram', color: '#e1306c', gradient: ['#833ab4', '#fd1d1d'] },
-  youtube:   { label: 'YouTube',   color: '#ff0000', gradient: ['#ff0000', '#cc0000'] },
-  facebook:  { label: 'Facebook',  color: '#1877f2', gradient: ['#1877f2', '#0a5ad4'] },
-  github:    { label: 'GitHub',    color: '#6e5494', gradient: ['#6e5494', '#24292e'] },
+  youtube: { label: 'YouTube', color: '#ff0000', gradient: ['#ff0000', '#cc0000'] },
+  facebook: { label: 'Facebook', color: '#1877f2', gradient: ['#1877f2', '#0a5ad4'] },
+  github: { label: 'GitHub', color: '#6e5494', gradient: ['#6e5494', '#24292e'] },
 };
 
 /* ── Social icons ───────────────────────────────────────────── */
@@ -228,7 +228,7 @@ export function drawGitHubIcon(ctx: CanvasRenderingContext2D, cx: number, cy: nu
   ctx.translate(-8, -8); // Offset half of the 16x16 viewport size to center it
 
   ctx.fillStyle = '#ffffff';
-  
+
   // Official GitHub logo SVG path
   const gitHubPath = new Path2D(
     'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 ' +
@@ -240,7 +240,7 @@ export function drawGitHubIcon(ctx: CanvasRenderingContext2D, cx: number, cy: nu
     '3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 ' +
     '.21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z'
   );
-  
+
   ctx.fill(gitHubPath);
 
   ctx.restore();
@@ -250,10 +250,10 @@ export function drawGitHubIcon(ctx: CanvasRenderingContext2D, cx: number, cy: nu
 export function getIconFn(name: string) {
   switch (name) {
     case 'instagram': return drawInstagramIcon;
-    case 'youtube':   return drawYouTubeIcon;
-    case 'facebook':  return drawFacebookIcon;
-    case 'github':    return drawGitHubIcon;
-    default:          return drawInstagramIcon;
+    case 'youtube': return drawYouTubeIcon;
+    case 'facebook': return drawFacebookIcon;
+    case 'github': return drawGitHubIcon;
+    default: return drawInstagramIcon;
   }
 }
 
@@ -384,9 +384,9 @@ export function drawCornerBrackets(
   ctx.strokeStyle = GOLD;
   ctx.lineWidth = 2;
   [
-    { sx: x,     sy: y,     dx1: x + size, dy1: y,     dx2: x,     dy2: y + size },
-    { sx: x + w, sy: y,     dx1: x + w - size, dy1: y, dx2: x + w, dy2: y + size },
-    { sx: x,     sy: y + h, dx1: x + size, dy1: y + h, dx2: x,     dy2: y + h - size },
+    { sx: x, sy: y, dx1: x + size, dy1: y, dx2: x, dy2: y + size },
+    { sx: x + w, sy: y, dx1: x + w - size, dy1: y, dx2: x + w, dy2: y + size },
+    { sx: x, sy: y + h, dx1: x + size, dy1: y + h, dx2: x, dy2: y + h - size },
     { sx: x + w, sy: y + h, dx1: x + w - size, dy1: y + h, dx2: x + w, dy2: y + h - size },
   ].forEach(({ sx, sy, dx1, dy1, dx2, dy2 }) => {
     ctx.beginPath();
@@ -431,9 +431,9 @@ export function getRevealLayout(W: number, H: number, is169: boolean, lineCount:
   const iH = iSize;
 
   const revealedSize = is169 ? W * 0.044 : W * 0.068;
-  const thatsMeSize  = is169 ? W * 0.022 : W * 0.034;
+  const thatsMeSize = is169 ? W * 0.022 : W * 0.034;
   const usernameSize = is169 ? W * 0.030 : W * 0.048;
-  const gap          = is169 ? H * 0.040 : H * 0.028;
+  const gap = is169 ? H * 0.040 : H * 0.028;
 
   const lineHeights = [iH, revealedSize * 1.3, thatsMeSize * 1.4, usernameSize * 1.4];
   const totalH = lineHeights.slice(0, lineCount).reduce((s, v) => s + v, 0) + gap * (lineCount - 1);
@@ -455,12 +455,19 @@ export function getSocialLayout(
   visibleCount: number, cW: number, cH: number,
   gap: number, titleH: number, titleGap: number
 ) {
-  const stackH = is169 ? cH : visibleCount * cH + (visibleCount - 1) * gap;
-  const rowW   = is169 ? visibleCount * cW + (visibleCount - 1) * gap : cW;
-  const groupH = titleH + titleGap + (is169 ? cH : stackH);
+  // Landscape: ≤3 → one row; >3 → 2 columns
+  const cols = is169 ? (visibleCount > 3 ? 2 : Math.max(1, visibleCount)) : 1;
+  const rows = is169
+    ? (visibleCount > 3 ? Math.ceil(visibleCount / 2) : 1)
+    : Math.max(1, visibleCount);
+
+  const stackH = rows * cH + Math.max(0, rows - 1) * gap;
+  const rowW =
+    cols * cW + Math.max(0, cols - 1) * gap;
+  const groupH = titleH + titleGap + stackH;
   const targetTopY = H / 2 - groupH / 2;
-  const animTopY   = getSmoothedGroupY('social', targetTopY);
-  return { animTopY, rowW, stackH, groupH };
+  const animTopY = getSmoothedGroupY('social', targetTopY);
+  return { animTopY, rowW, stackH, groupH, cols, rows };
 }
 
 /* ── drawCard ───────────────────────────────────────────────── */
@@ -474,8 +481,8 @@ export function drawCard(
   const info = PLATFORM_INFO[name];
   ctx.save();
   ctx.shadowColor = info.gradient[0];
-  ctx.shadowBlur  = 20;
-  ctx.fillStyle   = 'rgba(20,10,35,0.92)';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = 'rgba(20,10,35,0.92)';
   ctx.beginPath();
   ctx.roundRect(cX, cY, cW, cH, 12);
   ctx.fill();
@@ -484,7 +491,7 @@ export function drawCard(
   bg.addColorStop(0, info.gradient[0] + '88');
   bg.addColorStop(1, info.gradient[1] + '88');
   ctx.strokeStyle = bg;
-  ctx.lineWidth   = 1.5;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.roundRect(cX, cY, cW, cH, 12);
   ctx.stroke();
@@ -492,15 +499,15 @@ export function drawCard(
   iconFn(ctx, cX + cH * 0.55, cY + cH / 2, iS, 1);
 
   const tx = cX + cH * 1.05;
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = 'rgba(255,255,255,0.92)';
-  ctx.font        = `700 ${baseSize * 1.1}px Montserrat`;
-  ctx.textAlign   = 'left';
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = `700 ${baseSize * 1.1}px Montserrat`;
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(info.label, tx, cY + cH * 0.36);
 
   ctx.fillStyle = 'rgba(255,255,255,0.52)';
-  ctx.font      = `500 ${baseSize * 0.88}px Montserrat`;
+  ctx.font = `500 ${baseSize * 0.88}px Montserrat`;
   ctx.fillText(handle, tx, cY + cH * 0.68);
   ctx.restore();
 }
@@ -543,7 +550,7 @@ export function drawFirstFrame(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.shadowColor = PURPLE;
-  ctx.shadowBlur  = 60;
+  ctx.shadowBlur = 60;
   ctx.fillText('?', W / 2, H / 2 - (is169 ? H * 0.08 : H * 0.06));
   ctx.restore();
 
@@ -553,8 +560,8 @@ export function drawFirstFrame(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = GOLD;
-  ctx.shadowBlur  = 30;
-  ctx.fillStyle   = '#fff';
+  ctx.shadowBlur = 30;
+  ctx.fillStyle = '#fff';
   ctx.fillText("I'VE BEEN HIDING SOMETHING...", W / 2, titleY);
   ctx.restore();
 
@@ -579,8 +586,8 @@ export function drawIntro(
   const cx = W / 2;
   const cy = H / 2;
   const baseSize = is169 ? W * 0.032 : W * 0.056;
-  const lineGap  = is169 ? H * 0.09  : H * 0.075;
-  const yCenter  = is169 ? cy - lineGap * 0.2 : cy - lineGap * 0.6;
+  const lineGap = is169 ? H * 0.09 : H * 0.075;
+  const yCenter = is169 ? cy - lineGap * 0.2 : cy - lineGap * 0.6;
 
   if (is169) {
     const p1 = clamp01(progress(t, 0.3, 1.2));
@@ -608,8 +615,8 @@ export function drawIntro(
     const p3 = clamp01(progress(t, 1.6, 2.4));
     const p4 = clamp01(progress(t, 2.2, 2.8));
     const p5 = clamp01(progress(t, 2.7, 3.3));
-    const ts  = baseSize * 1.25;
-    const ss  = baseSize * 0.78;
+    const ts = baseSize * 1.25;
+    const ss = baseSize * 0.78;
     const ss2 = baseSize * 0.72;
 
     fadeIn(ctx, easeOutExpo(p1), () => {
@@ -666,8 +673,8 @@ export function drawSuspense(
   ctx.scale(0.7 + 0.3 * easeOutBack(cardAppear), 0.7 + 0.3 * easeOutBack(cardAppear));
   ctx.translate(-cx, -(cardY + cardH / 2));
   ctx.shadowColor = PURPLE;
-  ctx.shadowBlur  = 40 + pulse * 20;
-  ctx.fillStyle   = 'rgba(20,5,40,0.85)';
+  ctx.shadowBlur = 40 + pulse * 20;
+  ctx.fillStyle = 'rgba(20,5,40,0.85)';
   ctx.beginPath();
   ctx.roundRect(cardX, cardY, cardW, cardH, 16);
   ctx.fill();
@@ -678,7 +685,7 @@ export function drawSuspense(
   bg.addColorStop(0.5, `rgba(255,120,60,${0.2 + pulse * 0.2})`);
   bg.addColorStop(1, `rgba(160,80,255,${0.4 + pulse * 0.3})`);
   ctx.strokeStyle = bg;
-  ctx.lineWidth   = 2;
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(cardX, cardY, cardW, cardH, 16);
   ctx.stroke();
@@ -710,7 +717,7 @@ export function drawSuspense(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#fff';
   ctx.shadowColor = PURPLE;
-  ctx.shadowBlur  = 60;
+  ctx.shadowBlur = 60;
   ctx.fillText('?', cx, cardY + cardH / 2);
   ctx.restore();
   ctx.restore();
@@ -718,13 +725,13 @@ export function drawSuspense(
 
   const aboveCardY = cardY - H * (is169 ? 0.07 : 0.06);
   const belowCardY = cardY + cardH + H * (is169 ? 0.05 : 0.04);
-  const hookY   = is169 ? aboveCardY : belowCardY;
+  const hookY = is169 ? aboveCardY : belowCardY;
   const notYetY = is169 ? belowCardY : belowCardY + H * 0.07;
 
   [
     { text: '🔒  SOMETHING BIG IS HIDDEN HERE', start: 0.6, end: suspenseDur * 0.45 },
-    { text: '👁  LOOK CLOSELY...',               start: suspenseDur * 0.45, end: suspenseDur * 0.7 },
-    { text: '⚡  THE REVEAL IS COMING...',       start: suspenseDur * 0.7,  end: suspenseDur },
+    { text: '👁  LOOK CLOSELY...', start: suspenseDur * 0.45, end: suspenseDur * 0.7 },
+    { text: '⚡  THE REVEAL IS COMING...', start: suspenseDur * 0.7, end: suspenseDur },
   ].forEach(({ text, start, end }) => {
     if (rel >= start && rel < end) {
       const mp = clamp01(progress(rel, start, start + 0.4));
@@ -775,15 +782,15 @@ export function drawScan(
   ctx.save();
   ctx.globalAlpha = 0.06;
   ctx.strokeStyle = PURPLE;
-  ctx.lineWidth   = 1;
+  ctx.lineWidth = 1;
   const gs = is169 ? 60 : 80;
   for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
   ctx.restore();
 
   [
-    { label: 'SCANNING PROFILE',  delay: 0.3, dur: 2.0 },
-    { label: 'ANALYZING DATA',    delay: 1.0, dur: 1.8 },
+    { label: 'SCANNING PROFILE', delay: 0.3, dur: 2.0 },
+    { label: 'ANALYZING DATA', delay: 1.0, dur: 1.8 },
     { label: 'IDENTITY VERIFIED', delay: 2.0, dur: Math.max(0.8, scanDur - 2.0 - 0.5) },
   ].forEach(({ label, delay, dur }, i) => {
     const bt = clamp01(progress(rel, delay, delay + dur));
@@ -822,13 +829,13 @@ export function drawCountdown(
 
   let num: number;
   let slotRel: number;
-  if (rel < SLOT)        { num = 3; slotRel = rel; }
-  else if (rel < SLOT*2) { num = 2; slotRel = rel - SLOT; }
-  else                   { num = 1; slotRel = rel - SLOT * 2; }
+  if (rel < SLOT) { num = 3; slotRel = rel; }
+  else if (rel < SLOT * 2) { num = 2; slotRel = rel - SLOT; }
+  else { num = 1; slotRel = rel - SLOT * 2; }
 
   const nr = clamp01(slotRel / SLOT);
   const ns = is169 ? W * 0.18 : W * 0.38;
-  const IN  = 0.4 / SLOT;
+  const IN = 0.4 / SLOT;
   const OUT = 0.4 / SLOT;
   let sc: number, al: number;
 
@@ -890,7 +897,7 @@ export function drawReveal(
 ) {
   const T0 = CONFIG.timeline.revealAt;
   const rel = t - T0;
-  const rp  = clamp01(rel / 1.2);
+  const rp = clamp01(rel / 1.2);
   const revealedP = clamp01(progress(t, T0 + 0.8, T0 + 1.5));
   const lineCount = revealedP > 0 ? 2 : 1;
   const layout = getRevealLayout(W, H, is169, lineCount);
@@ -922,7 +929,7 @@ export function drawReveal(
 
     const blurAmount = lerp(15, 0, easeOutExpo(rp));
     ctx.shadowColor = GOLD;
-    ctx.shadowBlur  = 30 * rp;
+    ctx.shadowBlur = 30 * rp;
     drawProfileImage(ctx, ir, iX, iY, layout.iW, blurAmount, 16);
     ctx.restore();
   }
@@ -942,7 +949,7 @@ export function drawThatsMe(
   ctx: CanvasRenderingContext2D, W: number, H: number, t: number, is169: boolean
 ) {
   const T0 = CONFIG.timeline.revealAnimEnd;
-  const thatsMeP  = clamp01(progress(t, T0 + 0.2, T0 + 0.8));
+  const thatsMeP = clamp01(progress(t, T0 + 0.2, T0 + 0.8));
   const usernameP = clamp01(progress(t, T0 + 0.7, T0 + 1.4));
   const lineCount = usernameP > 0 ? 4 : thatsMeP > 0 ? 3 : 2;
   const layout = getRevealLayout(W, H, is169, lineCount);
@@ -956,7 +963,7 @@ export function drawThatsMe(
   if (ir) {
     ctx.save();
     ctx.shadowColor = GOLD;
-    ctx.shadowBlur  = 20;
+    ctx.shadowBlur = 20;
     drawProfileImage(ctx, ir, iX, iY, layout.iW, 0, 16);
     ctx.restore();
   }
@@ -990,7 +997,6 @@ export function drawSocialCards(
   const cx = W / 2;
   const baseSize = is169 ? W * 0.015 : W * 0.026;
 
-  // Use passed platforms or fall back to config defaults
   const activePlatforms = platforms && platforms.length > 0
     ? platforms
         .filter(p => p.enabled)
@@ -1007,43 +1013,70 @@ export function drawSocialCards(
         { name: 'facebook',  handle: CONFIG.facebookHandle,  iconFn: drawFacebookIcon,  delay: 1.0 },
       ];
 
-  const cW = is169 ? W * 0.24 : W * 0.72;
-  const cH = is169 ? H * 0.15 : H * 0.10;
+  const platformCount = activePlatforms.length;
+  const useGrid = is169 && platformCount > 3;
+
+  const cW = is169 ? (useGrid ? W * 0.28 : W * 0.24) : W * 0.72;
+  const cH = is169 ? (useGrid ? H * 0.14 : H * 0.15) : H * 0.10;
   const iS = is169 ? cH * 0.55 : cH * 0.58;
   const gap = is169 ? W * 0.025 : H * 0.022;
   const titleH    = is169 ? H * 0.055 : H * 0.050;
   const titleSize = is169 ? W * 0.018 : W * 0.030;
   const titleGap  = is169 ? H * 0.035 : H * 0.030;
 
-  const visibleCount = Math.max(1, activePlatforms.filter((_, i) => t >= T0 + activePlatforms[i].delay).length);
+  const visibleCount = Math.max(
+    1,
+    activePlatforms.filter((_, i) => t >= T0 + activePlatforms[i].delay).length,
+  );
   const titleP = easeOutExpo(clamp01(progress(t, T0, T0 + 0.4)));
-  const { animTopY, rowW } = getSocialLayout(W, H, is169, visibleCount, cW, cH, gap, titleH, titleGap);
+  const { animTopY } = getSocialLayout(
+    W, H, is169, visibleCount, cW, cH, gap, titleH, titleGap,
+  );
   const titleY      = animTopY + titleH / 2;
   const contentTopY = animTopY + titleH + titleGap;
 
   fadeIn(ctx, titleP, () => {
-    drawCenteredText(ctx, 'FIND ME ON:', cx, titleY, { font: `700 ${titleSize}px Montserrat`, color: 'rgba(255,255,255,0.55)', glow: PURPLE, glowSize: 15 });
+    drawCenteredText(ctx, 'FIND ME ON:', cx, titleY, {
+      font: `700 ${titleSize}px Montserrat`,
+      color: 'rgba(255,255,255,0.55)',
+      glow: PURPLE,
+      glowSize: 15,
+    });
   });
 
   if (is169) {
-    const rowStartX = cx - rowW / 2;
+    // ≤3: single row · >3: 2×N grid (e.g. 4 → 2×2)
+    const colCount = useGrid ? 2 : Math.max(1, platformCount);
+    const gridRowW = colCount * cW + (colCount - 1) * gap;
+    const rowStartX = cx - gridRowW / 2;
+
     activePlatforms.forEach(({ name, handle, iconFn, delay }, i) => {
       if (t < T0 + delay) return;
+
       const cardP = clamp01(progress(t, T0 + delay, T0 + delay + 0.45));
-      const al    = easeOutBack(cardP);
-      const targetX = rowStartX + i * (cW + gap);
-      const slideOffsetX = (1 - easeOutExpo(cardP)) * cW * 0.6;
+      const al = easeOutBack(cardP);
+
+      const col = useGrid ? i % 2 : i;
+      const row = useGrid ? Math.floor(i / 2) : 0;
+
+      const targetX = rowStartX + col * (cW + gap);
+      const targetY = contentTopY + row * (cH + gap);
+
+      const slideOffsetX = (1 - easeOutExpo(cardP)) * cW * 0.45;
+      const slideOffsetY = useGrid ? (1 - easeOutExpo(cardP)) * cH * 0.2 : 0;
+
       ctx.save();
       ctx.globalAlpha = al;
-      ctx.translate(slideOffsetX, 0);
-      drawCard(ctx, targetX, contentTopY, cW, cH, iS, name, handle, iconFn, baseSize);
+      ctx.translate(slideOffsetX, slideOffsetY);
+      drawCard(ctx, targetX, targetY, cW, cH, iS, name, handle, iconFn, baseSize);
       ctx.restore();
     });
   } else {
+    // Portrait: vertical stack
     activePlatforms.forEach(({ name, handle, iconFn, delay }, i) => {
       if (t < T0 + delay) return;
       const cardP = clamp01(progress(t, T0 + delay, T0 + delay + 0.45));
-      const al    = easeOutBack(cardP);
+      const al = easeOutBack(cardP);
       const cardTopY = contentTopY + i * (cH + gap);
       const slideOffsetY = (1 - easeOutExpo(cardP)) * H * 0.05;
       ctx.save();
@@ -1077,10 +1110,10 @@ export function drawFinalCTA(
 
   const edgeGap = is169 ? H * 0.07 : H * 0.06;
   const bottomY = H - edgeGap;
-  const topY    = edgeGap;
+  const topY = edgeGap;
   const ctaAlpha = clamp01(progress(t, 17.3, 17.8)) * (0.7 + 0.3 * Math.sin(t * 4));
-  const ctaFont  = `600 ${baseSize * 0.65}px Montserrat`;
-  const ctaText  = '↑  FOLLOW  •  LIKE  •  SUBSCRIBE  ↑';
+  const ctaFont = `600 ${baseSize * 0.65}px Montserrat`;
+  const ctaText = '↑  FOLLOW  •  LIKE  •  SUBSCRIBE  ↑';
   const ctaColor = 'rgba(255,255,255,0.45)';
 
   const drawSep = (y: number) => {
@@ -1108,11 +1141,11 @@ export function drawFinalCTA(
   const activePlatforms = platforms && platforms.length > 0
     ? platforms.filter(p => p.enabled).sort((a, b) => a.order - b.order)
     : [
-        { name: 'instagram' as const, handle: CONFIG.instagramHandle, enabled: true, order: 0, id: 'instagram' },
-        { name: 'youtube'   as const, handle: CONFIG.youtubeHandle,   enabled: true, order: 1, id: 'youtube'   },
-        { name: 'facebook'  as const, handle: CONFIG.facebookHandle,  enabled: true, order: 2, id: 'facebook'  },
-        { name: 'github'    as const, handle: CONFIG.githubHandle,    enabled: true, order: 3, id: 'github'    },
-      ];
+      { name: 'instagram' as const, handle: CONFIG.instagramHandle, enabled: true, order: 0, id: 'instagram' },
+      { name: 'youtube' as const, handle: CONFIG.youtubeHandle, enabled: true, order: 1, id: 'youtube' },
+      { name: 'facebook' as const, handle: CONFIG.facebookHandle, enabled: true, order: 2, id: 'facebook' },
+      { name: 'github' as const, handle: CONFIG.githubHandle, enabled: true, order: 3, id: 'github' },
+    ];
 
   const count = Math.max(1, activePlatforms.length);
 
@@ -1122,10 +1155,10 @@ export function drawFinalCTA(
   // 3 → [1, 2]
   // 4 → [2, 2]
   let rowCounts: number[];
-  if (count === 1)      rowCounts = [1];
+  if (count === 1) rowCounts = [1];
   else if (count === 2) rowCounts = [2];
   else if (count === 3) rowCounts = [1, 2];
-  else                  rowCounts = [2, 2]; // 4+
+  else rowCounts = [2, 2]; // 4+
 
   const rows = rowCounts.length;
 
@@ -1154,8 +1187,8 @@ export function drawFinalCTA(
   const lg = is169 ? H * 0.1 : H * 0.08;
   const blockTextH = lg * 2;
   const iconGapTop = is169 ? H * 0.05 : H * 0.04;
-  const totalH     = blockTextH + iconGapTop + iconsBlockH;
-  const blockTop   = cy - totalH / 2;
+  const totalH = blockTextH + iconGapTop + iconsBlockH;
+  const blockTop = cy - totalH / 2;
 
   const line1Y = blockTop;
   const line2Y = blockTop + lg;
@@ -1184,7 +1217,7 @@ export function drawFinalCTA(
   });
 
   /* ── Draw icons row-by-row ──────────────────────────────── */
-  const ip  = easeOutExpo(clamp01(progress(t, 17.1, 17.6)));
+  const ip = easeOutExpo(clamp01(progress(t, 17.1, 17.6)));
   const ipH = ip * 0.85;
 
   // Available width per row (leave margins)
@@ -1194,7 +1227,7 @@ export function drawFinalCTA(
   let platformIdx = 0;
 
   for (let r = 0; r < rows; r++) {
-    const rc  = rowCounts[r];
+    const rc = rowCounts[r];
     const iSz = rc === 1 ? iSizeSingle : iSizeDouble;
 
     // Compute horizontal gap. Ensure no overlap: at least iSz * 1.4 between centers.
@@ -1202,11 +1235,11 @@ export function drawFinalCTA(
     let centerGap = rc > 1 ? Math.min(maxRowW / rc, minCenterGap * 1.3) : 0;
     if (rc > 1 && centerGap < minCenterGap) centerGap = minCenterGap;
 
-    const rowW  = rc > 1 ? centerGap * (rc - 1) : 0;
+    const rowW = rc > 1 ? centerGap * (rc - 1) : 0;
     const rowX0 = cx - rowW / 2;
 
-    const iconCenterY  = cursorY + iSz / 2;
-    const handleY      = iconCenterY + iSz / 2 + iconToHandleGap + handleTextSize * 0.5;
+    const iconCenterY = cursorY + iSz / 2;
+    const handleY = iconCenterY + iSz / 2 + iconToHandleGap + handleTextSize * 0.5;
 
     for (let k = 0; k < rc; k++) {
       const plat = activePlatforms[platformIdx];
