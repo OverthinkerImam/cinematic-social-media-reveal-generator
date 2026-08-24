@@ -13,6 +13,7 @@ const PLATFORM_META: Record<string, { label: string; icon: string; placeholder: 
   instagram: { label: 'Instagram', icon: '📸', placeholder: '@yourhandle',      color: '#e1306c' },
   youtube:   { label: 'YouTube',   icon: '▶️',  placeholder: '@YourChannel',     color: '#ff0000' },
   facebook:  { label: 'Facebook',  icon: '👤',  placeholder: '@YourPage',        color: '#1877f2' },
+  github:    { label: 'GitHub',    icon: '🐙',  placeholder: '@yourusername',    color: '#6e5494' },
 };
 
 const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, onChange }) => {

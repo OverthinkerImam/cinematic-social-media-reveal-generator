@@ -1,4 +1,3 @@
-// src/types/index.ts
 export type AspectRatio = '16:9' | '9:16';
 
 export interface AppState {
@@ -26,7 +25,7 @@ export interface Particle {
 
 export interface PlatformConfig {
   id: string;
-  name: 'instagram' | 'youtube' | 'facebook';
+  name: 'instagram' | 'youtube' | 'facebook' | 'github';
   handle: string;
   enabled: boolean;
   order: number;

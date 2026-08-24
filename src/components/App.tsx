@@ -15,6 +15,7 @@ const DEFAULT_USER_CONFIG: UserConfig = {
     { id: 'instagram', name: 'instagram', handle: CONFIG.instagramHandle, enabled: true,  order: 0 },
     { id: 'youtube',   name: 'youtube',   handle: CONFIG.youtubeHandle,   enabled: true,  order: 1 },
     { id: 'facebook',  name: 'facebook',  handle: CONFIG.facebookHandle,  enabled: true,  order: 2 },
+    { id: 'github',    name: 'github',    handle: CONFIG.githubHandle,    enabled: true,  order: 3 },
   ],
 };
 

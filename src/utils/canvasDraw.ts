@@ -137,6 +137,7 @@ export const PLATFORM_INFO: Record<string, { label: string; color: string; gradi
   instagram: { label: 'Instagram', color: '#e1306c', gradient: ['#833ab4', '#fd1d1d'] },
   youtube:   { label: 'YouTube',   color: '#ff0000', gradient: ['#ff0000', '#cc0000'] },
   facebook:  { label: 'Facebook',  color: '#1877f2', gradient: ['#1877f2', '#0a5ad4'] },
+  github:    { label: 'GitHub',    color: '#6e5494', gradient: ['#6e5494', '#24292e'] },
 };
 
 /* ── Social icons ───────────────────────────────────────────── */
@@ -206,12 +207,52 @@ export function drawFacebookIcon(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.restore();
 }
 
+export function drawGitHubIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+
+  const s = size / 2;
+
+  // 1. Draw rounded background box
+  ctx.fillStyle = '#24292e';
+  ctx.beginPath();
+  ctx.roundRect(cx - s, cy - s, size, size, size * 0.22);
+  ctx.fill();
+
+  // 2. Draw official GitHub Mark vector path inside
+  const iconSize = size * 0.62; // scale logo to occupy ~62% of background box
+  const scale = iconSize / 16;  // official SVG viewport is 16x16
+
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  ctx.translate(-8, -8); // Offset half of the 16x16 viewport size to center it
+
+  ctx.fillStyle = '#ffffff';
+  
+  // Official GitHub logo SVG path
+  const gitHubPath = new Path2D(
+    'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 ' +
+    '0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-' +
+    '.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-' +
+    '.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-' +
+    '.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 ' +
+    '1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 ' +
+    '3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 ' +
+    '.21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z'
+  );
+  
+  ctx.fill(gitHubPath);
+
+  ctx.restore();
+}
+
 /* ── getIconFn ──────────────────────────────────────────────── */
 export function getIconFn(name: string) {
   switch (name) {
     case 'instagram': return drawInstagramIcon;
     case 'youtube':   return drawYouTubeIcon;
     case 'facebook':  return drawFacebookIcon;
+    case 'github':    return drawGitHubIcon;
     default:          return drawInstagramIcon;
   }
 }
@@ -1015,6 +1056,7 @@ export function drawSocialCards(
 }
 
 /* ── FINAL CTA ───────────────────────────────────────────────── */
+/* ── FINAL CTA ───────────────────────────────────────────────── */
 export function drawFinalCTA(
   ctx: CanvasRenderingContext2D, W: number, H: number, t: number, is169: boolean,
   platforms?: PlatformConfig[]
@@ -1062,18 +1104,63 @@ export function drawFinalCTA(
     drawCenteredText(ctx, ctaText, cx, bottomY, { font: ctaFont, color: ctaColor, glow: PURPLE, glowSize: 10, shadow: false });
   });
 
+  /* ── Active platforms ───────────────────────────────────── */
+  const activePlatforms = platforms && platforms.length > 0
+    ? platforms.filter(p => p.enabled).sort((a, b) => a.order - b.order)
+    : [
+        { name: 'instagram' as const, handle: CONFIG.instagramHandle, enabled: true, order: 0, id: 'instagram' },
+        { name: 'youtube'   as const, handle: CONFIG.youtubeHandle,   enabled: true, order: 1, id: 'youtube'   },
+        { name: 'facebook'  as const, handle: CONFIG.facebookHandle,  enabled: true, order: 2, id: 'facebook'  },
+        { name: 'github'    as const, handle: CONFIG.githubHandle,    enabled: true, order: 3, id: 'github'    },
+      ];
+
+  const count = Math.max(1, activePlatforms.length);
+
+  /* ── Row layout logic ───────────────────────────────────── */
+  // 1 → [1]
+  // 2 → [2]
+  // 3 → [1, 2]
+  // 4 → [2, 2]
+  let rowCounts: number[];
+  if (count === 1)      rowCounts = [1];
+  else if (count === 2) rowCounts = [2];
+  else if (count === 3) rowCounts = [1, 2];
+  else                  rowCounts = [2, 2]; // 4+
+
+  const rows = rowCounts.length;
+
+  /* ── Icon size scales with "biggest slot" ───────────────── */
+  // Bigger when fewer icons per row.
+  // Single (per row) → biggest. Two per row → medium.
+  const maxPerRow = Math.max(...rowCounts);
+  const iSizeSingle = is169 ? H * 0.12 : W * 0.18;   // when alone in a row
+  const iSizeDouble = is169 ? H * 0.09 : W * 0.135;  // when 2 in a row
+
+  // Vertical spacing
+  const rowGapY = is169 ? H * 0.03 : H * 0.025;
+  const handleTextSize = is169
+    ? (maxPerRow === 1 ? W * 0.014 : W * 0.011)
+    : (maxPerRow === 1 ? W * 0.030 : W * 0.024);
+  const iconToHandleGap = is169 ? H * 0.012 : H * 0.010;
+
+  // Compute row heights
+  const rowHeights = rowCounts.map(rc => {
+    const iSz = rc === 1 ? iSizeSingle : iSizeDouble;
+    return iSz + iconToHandleGap + handleTextSize * 1.2;
+  });
+  const iconsBlockH = rowHeights.reduce((s, v) => s + v, 0) + rowGapY * (rows - 1);
+
+  /* ── Text block layout ──────────────────────────────────── */
   const lg = is169 ? H * 0.1 : H * 0.08;
-  const iSize = is169 ? H * 0.07 : W * 0.105;
-  const blockTextH  = lg * 2;
-  const iconGapTop  = is169 ? H * 0.055 : H * 0.045;
-  const handleH     = is169 ? H * 0.04  : H * 0.03;
-  const totalH      = blockTextH + iconGapTop + iSize + handleH;
-  const blockTop    = cy - totalH / 2;
+  const blockTextH = lg * 2;
+  const iconGapTop = is169 ? H * 0.05 : H * 0.04;
+  const totalH     = blockTextH + iconGapTop + iconsBlockH;
+  const blockTop   = cy - totalH / 2;
+
   const line1Y = blockTop;
   const line2Y = blockTop + lg;
   const line3Y = blockTop + lg * 2;
-  const iY     = line3Y + iconGapTop + iSize * 0.5;
-  const hY     = iY + iSize * 0.62;
+  const iconsTop = line3Y + iconGapTop;
 
   const p1 = easeOutExpo(clamp01(progress(t, 16.0, 16.5)));
   fadeIn(ctx, p1, () => {
@@ -1096,40 +1183,59 @@ export function drawFinalCTA(
     ctx.restore();
   });
 
-  // Use active platforms for icons
-  const activePlatforms = platforms && platforms.length > 0
-    ? platforms.filter(p => p.enabled).sort((a, b) => a.order - b.order)
-    : [
-        { name: 'instagram' as const, handle: CONFIG.instagramHandle, enabled: true, order: 0, id: 'instagram' },
-        { name: 'youtube'   as const, handle: CONFIG.youtubeHandle,   enabled: true, order: 1, id: 'youtube'   },
-        { name: 'facebook'  as const, handle: CONFIG.facebookHandle,  enabled: true, order: 2, id: 'facebook'  },
-      ];
+  /* ── Draw icons row-by-row ──────────────────────────────── */
+  const ip  = easeOutExpo(clamp01(progress(t, 17.1, 17.6)));
+  const ipH = ip * 0.85;
 
-  const iFns = activePlatforms.map(p => getIconFn(p.name));
-  const handles = activePlatforms.map(p => p.handle);
-  const count = activePlatforms.length;
-  const ip = easeOutExpo(clamp01(progress(t, 17.1, 17.6)));
-  const iGapSpread = is169 ? iSize * 3.2 : iSize * 2.8;
-  const totalIconW = (count - 1) * iGapSpread;
+  // Available width per row (leave margins)
+  const maxRowW = is169 ? W * 0.62 : W * 0.92;
 
-  fadeIn(ctx, ip, () => {
-    iFns.forEach((fn, i) => {
-      const ix = cx - totalIconW / 2 + i * iGapSpread;
-      const pulse = 0.92 + 0.08 * Math.sin(t * 3 + i * 1.2);
-      ctx.save();
-      ctx.translate(ix, iY); ctx.scale(pulse, pulse); ctx.translate(-ix, -iY);
-      fn(ctx, ix, iY, iSize, 1);
-      ctx.restore();
-    });
-  });
+  let cursorY = iconsTop;
+  let platformIdx = 0;
 
-  fadeIn(ctx, ip * 0.85, () => {
-    handles.forEach((h, i) => {
-      const ix = cx - totalIconW / 2 + i * iGapSpread;
-      drawCenteredText(ctx, h, ix, hY, {
-        font: `500 ${is169 ? W * 0.009 : W * 0.022}px Montserrat`,
-        color: 'rgba(255,255,255,0.55)', glowSize: 0, shadow: false,
+  for (let r = 0; r < rows; r++) {
+    const rc  = rowCounts[r];
+    const iSz = rc === 1 ? iSizeSingle : iSizeDouble;
+
+    // Compute horizontal gap. Ensure no overlap: at least iSz * 1.4 between centers.
+    const minCenterGap = iSz * 1.55;
+    let centerGap = rc > 1 ? Math.min(maxRowW / rc, minCenterGap * 1.3) : 0;
+    if (rc > 1 && centerGap < minCenterGap) centerGap = minCenterGap;
+
+    const rowW  = rc > 1 ? centerGap * (rc - 1) : 0;
+    const rowX0 = cx - rowW / 2;
+
+    const iconCenterY  = cursorY + iSz / 2;
+    const handleY      = iconCenterY + iSz / 2 + iconToHandleGap + handleTextSize * 0.5;
+
+    for (let k = 0; k < rc; k++) {
+      const plat = activePlatforms[platformIdx];
+      if (!plat) break;
+      const fn = getIconFn(plat.name);
+      const ix = rc === 1 ? cx : rowX0 + k * centerGap;
+      const pulse = 0.92 + 0.08 * Math.sin(t * 3 + platformIdx * 1.2);
+
+      fadeIn(ctx, ip, () => {
+        ctx.save();
+        ctx.translate(ix, iconCenterY);
+        ctx.scale(pulse, pulse);
+        ctx.translate(-ix, -iconCenterY);
+        fn(ctx, ix, iconCenterY, iSz, 1);
+        ctx.restore();
       });
-    });
-  });
+
+      fadeIn(ctx, ipH, () => {
+        drawCenteredText(ctx, plat.handle, ix, handleY, {
+          font: `500 ${handleTextSize}px Montserrat`,
+          color: 'rgba(255,255,255,0.65)',
+          glowSize: 0,
+          shadow: false,
+        });
+      });
+
+      platformIdx++;
+    }
+
+    cursorY += rowHeights[r] + rowGapY;
+  }
 }

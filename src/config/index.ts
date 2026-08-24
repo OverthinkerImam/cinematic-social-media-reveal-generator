@@ -4,11 +4,13 @@ export const CONFIG = {
 
   instagramUrl: 'https://instagram.com/overthinkerimam',
   youtubeUrl: 'https://youtube.com/@OverthinkerImam',
-  facebookUrl: 'https://facebook.com/OverthinkerImam',
+  facebookUrl: 'https://www.facebook.com/profile.php?id=61593412310090',
+  githubUrl: 'https://github.com/OverthinkerImam',
 
   instagramHandle: '@overthinkerimam',
   youtubeHandle: '@OverthinkerImam',
-  facebookHandle: '@Overthinker Imam',
+  facebookHandle: '@Overthinker-Imam',
+  githubHandle: '@OverthinkerImam',
 
   revealDuration: 10,
   postRevealDuration: 8,
