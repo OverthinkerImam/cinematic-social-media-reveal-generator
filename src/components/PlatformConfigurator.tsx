@@ -1,7 +1,7 @@
 // src/components/PlatformConfigurator.tsx
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { PlatformConfig } from '@/types';
 
 interface PlatformConfiguratorProps {
@@ -10,10 +10,10 @@ interface PlatformConfiguratorProps {
 }
 
 const PLATFORM_META: Record<string, { label: string; icon: string; placeholder: string; color: string }> = {
-  instagram: { label: 'Instagram', icon: '📸', placeholder: '@yourhandle',      color: '#e1306c' },
-  youtube:   { label: 'YouTube',   icon: '▶️',  placeholder: '@YourChannel',     color: '#ff0000' },
-  facebook:  { label: 'Facebook',  icon: '👤',  placeholder: '@YourPage',        color: '#1877f2' },
-  github:    { label: 'GitHub',    icon: '🐙',  placeholder: '@yourusername',    color: '#6e5494' },
+  instagram: { label: 'Instagram', icon: '📸', placeholder: '@username',    color: '#e1306c' },
+  youtube:   { label: 'YouTube',   icon: '▶️',  placeholder: '@Channel',     color: '#ef4444' },
+  facebook:  { label: 'Facebook',  icon: '👤',  placeholder: '@Page',        color: '#3b82f6' },
+  github:    { label: 'GitHub',    icon: '🐙',  placeholder: '@developer',   color: '#8b5cf6' },
 };
 
 const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, onChange }) => {
@@ -23,11 +23,9 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
   const togglePlatform = (id: string) => {
     onChange(platforms.map(p => p.id === id ? { ...p, enabled: !p.enabled } : p));
   };
-
   const updateHandle = (id: string, handle: string) => {
     onChange(platforms.map(p => p.id === id ? { ...p, handle } : p));
   };
-
   const moveUp = (id: string) => {
     const sorted = [...platforms].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex(p => p.id === id);
@@ -36,7 +34,6 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
     [newArr[idx - 1], newArr[idx]] = [newArr[idx], newArr[idx - 1]];
     onChange(newArr.map((p, i) => ({ ...p, order: i })));
   };
-
   const moveDown = (id: string) => {
     const sorted = [...platforms].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex(p => p.id === id);
@@ -46,7 +43,6 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
     onChange(newArr.map((p, i) => ({ ...p, order: i })));
   };
 
-  // Drag-and-drop reorder
   const handleDragStart = (id: string) => { dragItem.current = id; };
   const handleDragOver  = (e: React.DragEvent, id: string) => {
     e.preventDefault();
@@ -68,22 +64,13 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
   const handleDragEnd = () => { setDragOver(null); dragItem.current = null; };
 
   const sorted = [...platforms].sort((a, b) => a.order - b.order);
-  const enabledCount = sorted.filter(p => p.enabled).length;
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '10px', letterSpacing: '3px', textTransform: 'uppercase' }}>
-          SOCIAL PLATFORMS
-        </span>
-        <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>
-          {enabledCount} selected · drag to reorder
-        </span>
-      </div>
-
       {sorted.map((platform, idx) => {
         const meta = PLATFORM_META[platform.name];
         const isDragTarget = dragOver === platform.id;
+        
         return (
           <div
             key={platform.id}
@@ -93,59 +80,42 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
             onDrop={() => handleDrop(platform.id)}
             onDragEnd={handleDragEnd}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 12px',
-              background: platform.enabled
-                ? 'rgba(120,40,255,0.08)'
-                : 'rgba(255,255,255,0.02)',
-              border: `1px solid ${isDragTarget
-                ? 'rgba(255,215,0,0.6)'
-                : platform.enabled
-                  ? 'rgba(180,100,255,0.3)'
-                  : 'rgba(255,255,255,0.07)'}`,
-              borderRadius: '10px',
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '10px 14px',
+              background: platform.enabled ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)',
+              border: `1px solid ${isDragTarget ? 'rgba(150,80,255,0.6)' : platform.enabled ? 'rgba(150,80,255,0.25)' : 'rgba(255,255,255,0.05)'}`,
+              borderRadius: '12px',
               transition: 'all 0.2s',
               cursor: 'grab',
               opacity: isDragTarget ? 0.7 : 1,
             }}
           >
             {/* Drag handle */}
-            <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: '14px', cursor: 'grab', flexShrink: 0 }}>
-              ⠿
-            </span>
+            <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '14px', cursor: 'grab' }}>⠿</span>
 
-            {/* Toggle */}
+            {/* Toggle Switch */}
             <button
               onClick={() => togglePlatform(platform.id)}
               style={{
-                width: '36px', height: '20px', flexShrink: 0,
+                width: '38px', height: '22px', flexShrink: 0,
                 background: platform.enabled ? meta.color : 'rgba(255,255,255,0.1)',
-                border: 'none', borderRadius: '10px', cursor: 'pointer',
-                position: 'relative', transition: 'all 0.2s',
+                border: 'none', borderRadius: '12px', cursor: 'pointer',
+                position: 'relative', transition: 'all 0.3s',
               }}
             >
               <div style={{
                 position: 'absolute', top: '2px',
                 left: platform.enabled ? '18px' : '2px',
-                width: '16px', height: '16px',
+                width: '18px', height: '18px',
                 background: '#fff', borderRadius: '50%',
-                transition: 'left 0.2s',
+                transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }} />
             </button>
 
-            {/* Icon + name */}
-            <span style={{ fontSize: '16px', flexShrink: 0 }}>{meta.icon}</span>
-            <span style={{
-              color: platform.enabled ? '#fff' : 'rgba(255,255,255,0.35)',
-              fontSize: '12px', fontWeight: 700, letterSpacing: '1px',
-              width: '72px', flexShrink: 0,
-            }}>
-              {meta.label}
-            </span>
+            <span style={{ fontSize: '18px', flexShrink: 0 }}>{meta.icon}</span>
 
-            {/* Handle input */}
+            {/* Handle Input */}
             <input
               type="text"
               value={platform.handle}
@@ -153,25 +123,23 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
               placeholder={meta.placeholder}
               disabled={!platform.enabled}
               style={{
-                flex: 1, background: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '6px', padding: '5px 10px',
-                color: platform.enabled ? '#fff' : 'rgba(255,255,255,0.25)',
-                fontSize: '12px', fontFamily: 'Montserrat, sans-serif',
-                outline: 'none',
-                minWidth: 0,
+                flex: 1, background: 'transparent',
+                border: 'none',
+                color: platform.enabled ? '#fff' : 'rgba(255,255,255,0.2)',
+                fontSize: '13px', fontWeight: 500, fontFamily: 'Montserrat, sans-serif',
+                outline: 'none', minWidth: '0'
               }}
             />
 
-            {/* Order arrows */}
+            {/* Reorder Arrows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flexShrink: 0 }}>
               <button
                 onClick={() => moveUp(platform.id)}
                 disabled={idx === 0}
                 style={{
                   background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer',
-                  color: idx === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.45)',
-                  fontSize: '10px', padding: '1px 4px', lineHeight: 1,
+                  color: idx === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.3)',
+                  fontSize: '10px', padding: '0 4px', lineHeight: 1,
                 }}
               >▲</button>
               <button
@@ -180,8 +148,8 @@ const PlatformConfigurator: React.FC<PlatformConfiguratorProps> = ({ platforms, 
                 style={{
                   background: 'none', border: 'none',
                   cursor: idx === sorted.length - 1 ? 'default' : 'pointer',
-                  color: idx === sorted.length - 1 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.45)',
-                  fontSize: '10px', padding: '1px 4px', lineHeight: 1,
+                  color: idx === sorted.length - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.3)',
+                  fontSize: '10px', padding: '0 4px', lineHeight: 1,
                 }}
               >▼</button>
             </div>

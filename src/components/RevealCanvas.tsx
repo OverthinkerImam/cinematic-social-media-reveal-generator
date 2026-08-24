@@ -71,6 +71,20 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
   const COMP_H = is169 ? 1080 : 1920;
   const T = CONFIG.timeline;
   const TOTAL = T.finalCtaEnd;
+  const [viewport, setViewport] = useState({
+    w: typeof window !== 'undefined' ? window.innerWidth : COMP_W,
+    h: typeof window !== 'undefined' ? window.innerHeight : COMP_H,
+  });
+
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
 
   useEffect(() => { autoDownloadRef.current = autoDownload; }, [autoDownload]);
   useEffect(() => { userConfigRef.current = userConfig; }, [userConfig]);
@@ -114,7 +128,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     if (!canvas) return false;
 
     if (mediaRecorderRef.current?.state !== 'inactive') {
-      try { mediaRecorderRef.current?.stop(); } catch {}
+      try { mediaRecorderRef.current?.stop(); } catch { }
     }
 
     stopFinalizeRef.current = null;
@@ -248,7 +262,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
 
       try {
         if (mr.state !== 'inactive') mr.stop();
-      } catch {}
+      } catch { }
     };
 
     const onFlushConfirmed = () => setTimeout(finalize, 500);
@@ -522,7 +536,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
       const mr = mediaRecorderRef.current;
 
       if (mr && mr.state !== 'inactive') {
-        try { mr.stop(); } catch {}
+        try { mr.stop(); } catch { }
       }
     };
   }, [
@@ -534,30 +548,32 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
   ]);
 
   /* ── Canvas scaling ───────────────────────────────────────── */
-  const vpW = typeof window !== 'undefined'
-    ? window.innerWidth
-    : COMP_W;
-
-  const vpH = typeof window !== 'undefined'
-    ? window.innerHeight
-    : COMP_H;
 
   const compAR = COMP_W / COMP_H;
-  const vpAR = vpW / vpH;
-
-  let displayW: number;
-  let displayH: number;
-
+  const vpAR = viewport.w / viewport.h;
+  let displayW: number, displayH: number;
   if (compAR > vpAR) {
-    displayW = vpW;
-    displayH = vpW / compAR;
+    displayW = viewport.w;
+    displayH = viewport.w / compAR;
   } else {
-    displayH = vpH;
-    displayW = vpH * compAR;
+    displayH = viewport.h;
+    displayW = viewport.h * compAR;
   }
 
-  return (
-    <div ref={containerRef} className="rc-container">
+    return (
+    <div
+      ref={containerRef}
+      className="rc-container"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#000',
+        overflow: 'hidden',
+      }}
+    >
       <canvas
         ref={canvasRef}
         width={COMP_W}
@@ -566,33 +582,89 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
           display: 'block',
           width: displayW,
           height: displayH,
+          flexShrink: 0,
         }}
       />
 
       {isRecording && (
-        <div className="rc-rec-indicator">
+        <div
+          className="rc-rec-indicator"
+          style={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(0,0,0,0.8)',
+            border: '1px solid rgba(255,60,60,0.5)',
+            borderRadius: 40,
+            padding: '7px 16px',
+            pointerEvents: 'none',
+          }}
+        >
           <span className="rc-rec-dot" />
           <span className="rc-rec-text">REC</span>
         </div>
       )}
 
       {showReplay && (
-        <div className="rc-replay-wrapper">
-          <div className="rc-replay-panel">
+        <div
+          className="rc-replay-wrapper"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            width: 'min(560px, calc(100vw - 24px))',
+            pointerEvents: 'auto',
+          }}
+        >
+          <div
+            className="rc-replay-panel"
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+              background: 'rgba(0,0,0,0.92)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 16,
+              padding: '22px 28px',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.7)',
+              textAlign: 'center',
+              fontFamily: 'Montserrat, sans-serif',
+            }}
+          >
             {recordingDone && (
-              <p className="rc-success-msg">
+              <p className="rc-success-msg" style={{ margin: 0, color: '#44ff88', fontWeight: 600, fontSize: 13 }}>
                 ✓ Video downloaded!
               </p>
             )}
 
-            <p className="rc-panel-label">
+            <p className="rc-panel-label" style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: 3, color: 'rgba(255,255,255,0.35)' }}>
               ANIMATION COMPLETE
             </p>
 
-            <div className="rc-btn-row">
+            <div className="rc-btn-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
               <button
                 className="rc-replay-btn"
                 onClick={handleReplay}
+                style={{
+                  flex: '1 1 140px',
+                  padding: '12px 24px',
+                  background: 'rgba(153,51,255,0.2)',
+                  border: '1px solid rgba(153,51,255,0.5)',
+                  borderRadius: 8,
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: 2,
+                  cursor: 'pointer',
+                  fontFamily: 'Montserrat, sans-serif',
+                }}
               >
                 ▶ REPLAY
               </button>
@@ -600,14 +672,27 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
               <button
                 className="rc-download-btn"
                 onClick={handleReplayAndDownload}
+                style={{
+                  flex: '1 1 180px',
+                  padding: '12px 24px',
+                  background: 'rgba(255,215,0,0.18)',
+                  border: '1px solid rgba(255,215,0,0.5)',
+                  borderRadius: 8,
+                  color: '#ffd700',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  letterSpacing: 2,
+                  cursor: 'pointer',
+                  fontFamily: 'Montserrat, sans-serif',
+                }}
               >
                 ⬇ REPLAY + DOWNLOAD
               </button>
             </div>
 
-            <div className="rc-panel-divider" />
+            <div className="rc-panel-divider" style={{ width: '100%', height: 1, background: 'rgba(255,255,255,0.08)', margin: '2px 0' }} />
 
-            <div className="rc-btn-row">
+            <div className="rc-btn-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
               {[
                 {
                   label: '↩ MENU',
@@ -635,6 +720,18 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
                   key={label}
                   className="rc-sec-btn"
                   onClick={onClick}
+                  style={{
+                    padding: '9px 16px',
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    borderRadius: 8,
+                    color: 'rgba(255,255,255,0.7)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: 2,
+                    cursor: 'pointer',
+                    fontFamily: 'Montserrat, sans-serif',
+                  }}
                 >
                   {label}
                 </button>

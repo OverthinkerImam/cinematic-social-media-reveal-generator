@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Reset */
+/* ── Reset & Base ─────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -11,95 +11,148 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  background: #080310;
   font-family: 'Montserrat', 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Pulse animation for recording indicator */
 @keyframes recPulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.3;
-    transform: scale(0.7);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.3; transform: scale(0.7); }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-}
+canvas { image-rendering: crisp-edges; }
 
-@keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-}
-
-/* Ensure canvas is crisp */
-canvas {
-  image-rendering: crisp-edges;
-}
-
-/* Control Panel */
+/* ── Control Panel Dashboard ──────────────────────────────── */
 .cp-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, #1a0a2e 0%, #0a0010 60%, #000 100%);
+  width: 100%;
+  background: radial-gradient(circle at 50% -20%, #1c0a3a 0%, #080310 60%, #000000 100%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;          /* top-align so scroll feels natural on phones */
   justify-content: center;
   font-family: 'Montserrat', sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* Equal space left & right — never use 100vw here */
+  padding: clamp(12px, 3vw, 40px);
+  padding-left: max(clamp(12px, 3vw, 40px), env(safe-area-inset-left));
+  padding-right: max(clamp(12px, 3vw, 40px), env(safe-area-inset-right));
+  padding-bottom: max(clamp(12px, 3vw, 40px), env(safe-area-inset-bottom));
+  /* Reserve scrollbar room on BOTH sides so content stays centered */
+  scrollbar-gutter: stable both-edges;
 }
 
 .cp-bg-glow {
-  position: absolute;
-  top: 30%;
+  position: fixed;                  /* fixed so it doesn't shift with scroll */
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 800px;
-  height: 400px;
-  background: radial-gradient(ellipse, rgba(120,40,255,0.15) 0%, transparent 70%);
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(120,40,255,0.08) 0%, transparent 100%);
   pointer-events: none;
+  z-index: 0;
 }
 
 .cp-grain {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
   pointer-events: none;
-  opacity: 0.5;
+  z-index: 1;
 }
 
+/* Main Dashboard Panel — single scroll surface, balanced gutters */
 .cp-panel {
   position: relative;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 52px 48px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  gap: clamp(20px, 3vw, 32px);
+  /* Symmetric padding on all sides */
+  padding: clamp(20px, 4vw, 48px);
+  background: rgba(18, 8, 32, 0.4);
+  border: 1px solid rgba(150, 80, 255, 0.15);
   border-radius: 24px;
-  backdrop-filter: blur(20px);
-  max-width: 580px;
-  width: 90vw;
-  box-shadow: 0 0 80px rgba(120,40,255,0.1), inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;             /* true horizontal center */
+  box-shadow: 0 20px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+  /* Let the OVERLAY scroll on phones instead of nesting a second scrollbar
+     (nested scrollbars are what made right side look tighter) */
+  max-height: none;
+  overflow: visible;
+}
+
+/* On large screens, keep panel capped to viewport height with internal scroll */
+@media (min-width: 992px) {
+  .cp-overlay {
+    align-items: center;
+  }
+
+  .cp-panel {
+    max-height: calc(100vh - clamp(32px, 6vw, 80px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* Balance the internal scrollbar so left/right padding match */
+    scrollbar-gutter: stable both-edges;
+  }
+}
+
+/* Responsive Grid Layout */
+.cp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(16px, 3vw, 24px);
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 992px) {
+  .cp-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+}
+
+/* Inner Sections (Cards) */
+.cp-card {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: clamp(16px, 4vw, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cp-header {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
 .cp-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 4px;
-  color: rgba(255,255,255,0.4);
+  color: #a78bfa;
   text-transform: uppercase;
 }
 
@@ -107,188 +160,171 @@ canvas {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255,180,0,0.6);
-  display: inline-block;
+  background: #fbbf24;
+  flex-shrink: 0;
 }
 
 .cp-title {
   margin: 0;
-  font-size: clamp(22px, 4.5vw, 38px);
+  font-size: clamp(24px, 6vw, 42px);
   font-weight: 900;
-  letter-spacing: 3px;
-  text-align: center;
-  background: linear-gradient(135deg, #fff 0%, #c0a0ff 50%, #ff9966 100%);
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #ffffff 0%, #c4a1ff 50%, #ff8a4c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .cp-subtitle {
   margin: 0;
-  font-size: 13px;
+  font-size: clamp(12px, 2.5vw, 14px);
   font-weight: 400;
   color: rgba(255,255,255,0.4);
   letter-spacing: 1px;
   text-align: center;
 }
 
+.cp-label {
+  color: rgba(255,255,255,0.4);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* Inputs & Formats */
+.cp-input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.cp-input:focus {
+  border-color: rgba(150, 80, 255, 0.5);
+  box-shadow: 0 0 15px rgba(150, 80, 255, 0.15);
+}
+
 .cp-format-row {
   display: flex;
-  gap: 16px;
+  gap: clamp(8px, 2vw, 16px);
   width: 100%;
-  justify-content: center;
+  min-width: 0;
 }
 
 .cp-format-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 22px 14px;
-  background: rgba(255,255,255,0.04);
-  border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  color: rgba(255,255,255,0.5);
+  gap: 8px;
+  padding: 24px 8px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  color: rgba(255,255,255,0.4);
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Montserrat', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
+}
+
+.cp-format-btn:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .cp-format-btn.active {
   background: rgba(120,40,255,0.15);
-  border: 2px solid rgba(180,100,255,0.6);
+  border: 1px solid rgba(180,100,255,0.5);
   color: #fff;
-  box-shadow: 0 0 30px rgba(120,40,255,0.3), inset 0 0 20px rgba(120,40,255,0.1);
+  box-shadow: 0 8px 30px rgba(120,40,255,0.2), inset 0 0 20px rgba(120,40,255,0.1);
+  transform: translateY(-2px);
 }
 
-.cp-format-icon {
-  font-size: 26px;
-  line-height: 1;
-  display: block;
-  text-align: center;
-}
+.cp-format-icon { font-size: 24px; line-height: 1; }
+.cp-format-label { font-size: clamp(14px, 3vw, 18px); font-weight: 800; letter-spacing: 2px; }
+.cp-format-sub { font-size: clamp(8px, 1.5vw, 10px); font-weight: 700; letter-spacing: 2px; opacity: 0.7; }
 
-.cp-format-label {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 3px;
-  display: block;
-  text-align: center;
-}
-
-.cp-format-sub {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  opacity: 0.7;
-  display: block;
-  text-align: center;
-}
-
-.cp-format-desc {
-  font-size: 11px;
-  font-weight: 400;
-  opacity: 0.5;
-  letter-spacing: 0.5px;
-  display: block;
-  text-align: center;
-}
-
-.cp-hint {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(255,255,255,0.3);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  text-align: center;
+/* Actions */
+.cp-actions-card {
+  margin-top: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  gap: 16px;
 }
 
 .cp-mute-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  color: rgba(255,255,255,0.55);
-  padding: 9px 24px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.6);
+  padding: 12px 24px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 2px;
   cursor: pointer;
+  transition: all 0.2s;
+  display: block;
+  width: 100%;
   font-family: 'Montserrat', sans-serif;
-  transition: all 0.2s ease;
-  margin: 0 auto;
 }
-
-.cp-divider {
-  width: 100%;
-  height: 1px;
-  background: rgba(255,255,255,0.07);
-  margin: 4px 0;
-}
-
-.cp-cta-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  align-items: center;
-}
+.cp-mute-btn:hover { background: rgba(255,255,255,0.08); }
 
 .cp-start-btn {
   width: 100%;
-  padding: 18px 20px;
-  background: linear-gradient(135deg, #ff9900 0%, #ff6600 50%, #cc3300 100%);
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%);
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   color: #fff;
-  font-size: 17px;
+  font-size: clamp(13px, 3vw, 15px);
   font-weight: 800;
-  letter-spacing: 4px;
+  letter-spacing: 3px;
   cursor: pointer;
   font-family: 'Montserrat', sans-serif;
-  box-shadow: 0 0 40px rgba(255,180,0,0.4), 0 0 80px rgba(255,120,0,0.2);
+  box-shadow: 0 8px 25px rgba(234, 88, 12, 0.4);
   transition: all 0.3s ease;
   text-align: center;
 }
-
 .cp-start-btn:hover {
-  transform: scale(1.04);
-  box-shadow: 0 0 60px rgba(255,180,0,0.65), 0 0 120px rgba(255,120,0,0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(234, 88, 12, 0.6);
 }
 
 .cp-start-download-btn {
   width: 100%;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #1a8a3a 0%, #22aa55 50%, #1a7a30 100%);
-  border: 1px solid rgba(80,220,120,0.35);
-  border-radius: 14px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+  border: none;
+  border-radius: 12px;
   color: #fff;
-  font-size: 15px;
+  font-size: clamp(12px, 2.5vw, 14px);
   font-weight: 700;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
   cursor: pointer;
   font-family: 'Montserrat', sans-serif;
-  box-shadow: 0 0 40px rgba(100,220,100,0.3), 0 0 80px rgba(50,180,50,0.15);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
   transition: all 0.3s ease;
   text-align: center;
 }
-
 .cp-start-download-btn:hover {
-  transform: scale(1.04);
-  box-shadow: 0 0 60px rgba(100,220,100,0.5), 0 0 120px rgba(50,180,50,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(16, 185, 129, 0.5);
 }
 
-.cp-warning {
-  margin: 0;
-  font-size: 11px;
-  color: rgba(255,180,0,0.5);
-  letter-spacing: 0.5px;
-  text-align: center;
-}
-
-/* Reveal Canvas */
+/* ── Reveal Canvas ─────────────────────────────────────────── */
 .rc-container {
   position: fixed;
   inset: 0;
@@ -297,12 +333,13 @@ canvas {
   justify-content: center;
   background: #000;
   overflow: hidden;
+  width: 100%;
 }
 
 .rc-rec-indicator {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: clamp(10px, 2vw, 20px);
+  right: clamp(10px, 2vw, 20px);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -333,32 +370,151 @@ canvas {
   letter-spacing: 2px;
 }
 
+/* ── Custom Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 80, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 80, 255, 0.6);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 80, 255, 0.3) transparent;
+}
+
+/* Helpers */
+.flex-row-center {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  width: 100%;
+  min-width: 0;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* ── Image Cropper Modal ──────────────────────────────────── */
+.ic-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(8px, 2vw, 16px);
+  padding-left: max(clamp(8px, 2vw, 16px), env(safe-area-inset-left));
+  padding-right: max(clamp(8px, 2vw, 16px), env(safe-area-inset-right));
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  scrollbar-gutter: stable both-edges;
+}
+
+.ic-panel {
+  position: relative;
+  z-index: 10001;
+  background: rgba(12, 4, 28, 0.99);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: clamp(14px, 2vw, 20px);
+  padding: clamp(16px, 4vw, 24px);
+  width: min(500px, 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 2vw, 14px);
+  box-shadow: 0 0 80px rgba(120, 40, 255, 0.22);
+  max-height: calc(100vh - clamp(16px, 4vw, 32px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 100, 255, 0.3) transparent;
+}
+
+.ic-preview-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2.5vw, 16px);
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.ic-preview-col {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ic-preview-canvas {
+  width: clamp(96px, 22vw, 160px);
+  height: clamp(96px, 22vw, 160px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 0, 0.28);
+  display: block;
+}
+
+.ic-size-col {
+  flex: 1 1 160px;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Replay UI ─────────────────────────────────────────────── */
 .rc-replay-wrapper {
   position: fixed;
-  bottom: 30px;
+  bottom: clamp(12px, 3vw, 30px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
+  width: min(560px, calc(100% - 24px));
+  pointer-events: auto;
 }
 
 .rc-replay-panel {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  background: rgba(0,0,0,0.92);
-  border: 1px solid rgba(255,255,255,0.12);
+  gap: clamp(8px, 1.5vw, 12px);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 22px 28px;
+  padding: clamp(14px, 3vw, 22px) clamp(12px, 3vw, 28px);
   backdrop-filter: blur(20px);
   font-family: 'Montserrat', sans-serif;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
   text-align: center;
+  width: 100%;
 }
 
 .rc-success-msg {
   margin: 0;
-  font-size: 13px;
+  font-size: clamp(12px, 2vw, 13px);
   font-weight: 600;
   color: #44ff88;
   letter-spacing: 1px;
@@ -366,10 +522,10 @@ canvas {
 
 .rc-panel-label {
   margin: 0;
-  font-size: 11px;
+  font-size: clamp(10px, 1.7vw, 11px);
   font-weight: 600;
   letter-spacing: 3px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .rc-btn-row {
@@ -377,22 +533,24 @@ canvas {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
 }
 
 .rc-panel-divider {
   width: 100%;
   height: 1px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   margin: 2px 0;
 }
 
 .rc-replay-btn {
-  padding: 12px 24px;
-  background: rgba(153,51,255,0.2);
-  border: 1px solid rgba(153,51,255,0.5);
+  flex: 1 1 120px;
+  padding: clamp(10px, 2vw, 12px) clamp(12px, 3vw, 24px);
+  background: rgba(153, 51, 255, 0.2);
+  border: 1px solid rgba(153, 51, 255, 0.5);
   border-radius: 8px;
   color: #fff;
-  font-size: 13px;
+  font-size: clamp(11px, 2vw, 13px);
   font-weight: 700;
   letter-spacing: 2px;
   cursor: pointer;
@@ -400,12 +558,13 @@ canvas {
 }
 
 .rc-download-btn {
-  padding: 12px 24px;
-  background: rgba(255,215,0,0.18);
-  border: 1px solid rgba(255,215,0,0.5);
+  flex: 1 1 160px;
+  padding: clamp(10px, 2vw, 12px) clamp(12px, 3vw, 24px);
+  background: rgba(255, 215, 0, 0.18);
+  border: 1px solid rgba(255, 215, 0, 0.5);
   border-radius: 8px;
   color: #ffd700;
-  font-size: 13px;
+  font-size: clamp(11px, 2vw, 13px);
   font-weight: 700;
   letter-spacing: 2px;
   cursor: pointer;
@@ -413,54 +572,27 @@ canvas {
 }
 
 .rc-sec-btn {
-  padding: 9px 16px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.14);
+  flex: 1 1 auto;
+  padding: clamp(8px, 1.5vw, 9px) clamp(8px, 2vw, 16px);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: clamp(10px, 1.8vw, 12px);
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   cursor: pointer;
   font-family: 'Montserrat', sans-serif;
 }
 
-
-/* Add to globals.css */
-
-/* ── Custom Scrollbar ───────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(180, 100, 255, 0.35);
-  border-radius: 3px;
-  transition: background 0.2s;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(180, 100, 255, 0.6);
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(180, 100, 255, 0.35) rgba(255, 255, 255, 0.03);
-}
-
-/* Panel specific scrollbar */
-.cp-panel {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(180, 100, 255, 0.3) transparent;
+@media (max-width: 480px) {
+  .rc-btn-row {
+    flex-direction: column;
+  }
+  .rc-replay-btn,
+  .rc-download-btn,
+  .rc-sec-btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 }
