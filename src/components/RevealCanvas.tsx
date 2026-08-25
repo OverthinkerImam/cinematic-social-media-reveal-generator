@@ -33,6 +33,40 @@ function formatFileTimestamp(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 }
 
+// Static Developer details bound directly to CONFIG URLs
+const DEV_HUB = {
+  username: CONFIG.username,
+  socials: [
+    { id: 'instagram', name: 'instagram', url: CONFIG.instagramUrl },
+    { id: 'youtube',   name: 'youtube',   url: CONFIG.youtubeUrl },
+    { id: 'facebook',  name: 'facebook',  url: CONFIG.facebookUrl },
+    { id: 'github',    name: 'github',    url: CONFIG.githubUrl },
+  ]
+};
+
+const BRAND_ICONS = {
+  instagram: (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+    </svg>
+  ),
+  youtube: (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path d="M23.498 6.163a3.003 3.003 0 00-2.11-2.11C19.518 3.545 12 3.545 12 3.545s-7.518 0-9.388.507a3.003 3.003 0 00-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 002.11 2.11c1.87.507 9.388.507 9.388.507s7.518 0 9.388-.507a3.003 3.003 0 002.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+  ),
+  facebook: (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    </svg>
+  ),
+  github: (
+    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" width="18" height="18">
+      <path fillRule="evenodd" clipRule="evenodd" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.31.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.28-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+    </svg>
+  ),
+};
+
 interface RevealCanvasProps {
   aspectRatio: AspectRatio;
   muted: boolean;
@@ -162,7 +196,6 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
       }
     }
 
-    /* Add the same intro.mp3 stream to the canvas stream */
     const audioStream = audioManager.getStream();
 
     if (audioStream) {
@@ -317,10 +350,6 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
 
   /* ── Audio ───────────────────────────────────────────────── */
   const handleAudio = useCallback((t: number) => {
-    /*
-     * There is only ONE audio file.
-     * Start it once and let it continue for the entire animation.
-     */
     if (!tickPlayedRef.current.has(0) && t >= T.introStart) {
       tickPlayedRef.current.add(0);
       audioManager.play('intro', 0.7, false);
@@ -548,7 +577,6 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
   ]);
 
   /* ── Canvas scaling ───────────────────────────────────────── */
-
   const compAR = COMP_W / COMP_H;
   const vpAR = viewport.w / viewport.h;
   let displayW: number, displayH: number;
@@ -560,7 +588,7 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
     displayW = viewport.h * compAR;
   }
 
-    return (
+  return (
     <div
       ref={containerRef}
       className="rc-container"
@@ -647,6 +675,67 @@ const RevealCanvas: React.FC<RevealCanvasProps> = ({
             <p className="rc-panel-label" style={{ margin: 0, fontSize: 11, fontWeight: 600, letterSpacing: 3, color: 'rgba(255,255,255,0.35)' }}>
               ANIMATION COMPLETE
             </p>
+
+            {/* Static Developer Redirection Hub (Always points directly to your CONFIG urls) */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '8px', 
+                width: '100%', 
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 215, 0, 0.15)',
+                borderRadius: '12px',
+                padding: '12px',
+                boxSizing: 'border-box',
+                boxShadow: 'inset 0 0 10px rgba(255, 215, 0, 0.03)'
+              }}
+            >
+              <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '2px', color: '#ffd700', textTransform: 'uppercase' }}>
+                SUPPORT THE DEVELOPER ({DEV_HUB.username})
+              </span>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {DEV_HUB.socials.map(social => {
+                  return (
+                    <a
+                      key={social.id}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        background: 'rgba(255, 215, 0, 0.08)',
+                        border: '1px solid rgba(255, 215, 0, 0.35)',
+                        borderRadius: '20px',
+                        color: '#ffd700',
+                        textDecoration: 'none',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.borderColor = '#ffd700';
+                        e.currentTarget.style.background = 'rgba(255, 215, 0, 0.15)';
+                        e.currentTarget.style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.borderColor = 'rgba(255, 215, 0, 0.35)';
+                        e.currentTarget.style.background = 'rgba(255, 215, 0, 0.08)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {BRAND_ICONS[social.name as keyof typeof BRAND_ICONS] || '🔗'}
+                      <span>{social.name.toUpperCase()}</span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="rc-btn-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
               <button
