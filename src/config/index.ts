@@ -1,5 +1,5 @@
 export const CONFIG = {
-  profileImage: '/images/profile.png',
+  profileImage: '/images/profile.jpg',
   username: '@overthinkerimam',
 
   instagramUrl: 'https://instagram.com/overthinkerimam',

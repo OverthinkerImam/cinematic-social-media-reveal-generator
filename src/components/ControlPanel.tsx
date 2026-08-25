@@ -151,7 +151,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     href={social.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={`Visit Developer's ${social.name}`}
+                    title={`${social.name}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
